@@ -924,6 +924,8 @@ def run_conversation(
             logging.debug(f"Total message size: ~{approx_tokens:,} tokens")
         
         api_start_time = time.time()
+        _api_start_monotonic = time.monotonic()
+        _first_delta_elapsed = {"seconds": None}
         retry_count = 0
         max_retries = agent._api_max_retries
         _retry = TurnRetryState()
@@ -1127,8 +1129,12 @@ def run_conversation(
 
                 def _perform_api_call(next_api_kwargs):
                     if _use_streaming:
+                        def _record_first_delta():
+                            if _first_delta_elapsed["seconds"] is None:
+                                _first_delta_elapsed["seconds"] = time.monotonic() - _api_start_monotonic
+                            _stop_spinner()
                         return agent._interruptible_streaming_api_call(
-                            next_api_kwargs, on_first_delta=_stop_spinner
+                            next_api_kwargs, on_first_delta=_record_first_delta
                         )
                     return agent._interruptible_api_call(next_api_kwargs)
 
@@ -1839,13 +1845,20 @@ def run_conversation(
 
                     # Log API call details for debugging/observability
                     _cache_pct = ""
-                    if canonical_usage.cache_read_tokens and prompt_tokens:
+                    _prompt_details = getattr(response.usage, "prompt_tokens_details", None)
+                    _cache_reported = (
+                        getattr(_prompt_details, "cached_tokens", None) is not None
+                        or getattr(response.usage, "cache_read_input_tokens", None) is not None
+                    )
+                    if prompt_tokens and (canonical_usage.cache_read_tokens or _cache_reported):
                         _cache_pct = f" cache={canonical_usage.cache_read_tokens}/{prompt_tokens} ({100*canonical_usage.cache_read_tokens/prompt_tokens:.0f}%)"
+                    _ttft = (f" ttft={_first_delta_elapsed['seconds']:.3f}s"
+                             if _first_delta_elapsed['seconds'] is not None else "")
                     logger.info(
-                        "API call #%d: model=%s provider=%s in=%d out=%d total=%d latency=%.1fs%s",
+                        "API call #%d: model=%s provider=%s in=%d out=%d total=%d latency=%.1fs%s%s",
                         agent.session_api_calls, agent.model, agent.provider or "unknown",
                         prompt_tokens, completion_tokens, total_tokens,
-                        api_duration, _cache_pct,
+                        api_duration, _cache_pct, _ttft,
                     )
 
                     cost_result = estimate_usage_cost(

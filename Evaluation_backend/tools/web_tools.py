@@ -102,7 +102,7 @@ from tools.tool_backend_helpers import (  # noqa: F401
     nous_tool_gateway_unavailable_message,
     prefers_gateway,
 )
-from tools.url_safety import async_is_safe_url, normalize_url_for_request
+from tools.url_safety import async_is_safe_url, async_is_safe_external_fetch_url, normalize_url_for_request
 import sys
 
 logger = logging.getLogger(__name__)
@@ -1026,8 +1026,14 @@ async def web_extract_tool(
         # ── SSRF protection — filter out private/internal URLs before any backend ──
         safe_urls = []
         ssrf_blocked: List[Dict[str, Any]] = []
+        verify_external_dns = False
+        if os.getenv("GLASSEEK_FETCH_DOH_SAFETY") == "1":
+            _ensure_web_plugins_loaded()
+            verify_external_dns = _get_extract_backend() == "fetch_server"
         for url in normalized_urls:
-            if not await async_is_safe_url(url):
+            safe = (await async_is_safe_external_fetch_url(url) if verify_external_dns
+                    else await async_is_safe_url(url))
+            if not safe:
                 ssrf_blocked.append({
                     "url": url, "title": "", "content": "",
                     "error": "Blocked: URL targets a private or internal network address",
@@ -1110,6 +1116,20 @@ async def web_extract_tool(
             results = ssrf_blocked + results
 
         response = {"results": results}
+
+        # Optional Quest retrieval returns selected evidence directly, avoiding
+        # the legacy long-page LLM summarizer and its separate safety-net retry.
+        if os.getenv("GLASSEEK_QUEST_PAGE_RETRIEVAL") == "1":
+            from tools.quest_page_retrieval import select_pages
+            selected = await select_pages(results)
+            trimmed = [{"url": r.get("url", ""), "title": r.get("title", ""),
+                        "content": r.get("content", ""), "error": r.get("error"),
+                        **({"retrieval": r["retrieval"]} if "retrieval" in r else {}),
+                        **({"blocked_by_policy": r["blocked_by_policy"]} if "blocked_by_policy" in r else {})}
+                       for r in selected if isinstance(r, dict)]
+            if not trimmed:
+                return clean_base64_images(tool_error("Content was inaccessible or not found"))
+            return clean_base64_images(json.dumps({"results": trimmed}, ensure_ascii=False))
         
         pages_extracted = len(response.get('results', []))
         logger.info("Extracted content from %d pages", pages_extracted)

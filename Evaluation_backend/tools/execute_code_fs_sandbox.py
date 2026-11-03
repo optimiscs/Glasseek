@@ -207,6 +207,12 @@ def _install_filesystem_seccomp() -> None:
         for syscall in always_deny:
             _add_deny_rule(seccomp, context, syscall)
 
+        # The remote pure-compute transport runs on a shared host without a
+        # dedicated per-job cgroup. Do not allow it to fork or create threads.
+        if os.environ.get("HERMES_SANDBOX_NO_FORK") == "1":
+            for syscall in ("clone", "clone3", "fork", "vfork"):
+                _add_deny_rule(seccomp, context, syscall)
+
         libc = ctypes.CDLL(None, use_errno=True)
         if libc.prctl(38, 1, 0, 0, 0) != 0:  # PR_SET_NO_NEW_PRIVS
             raise OSError(ctypes.get_errno(), "PR_SET_NO_NEW_PRIVS failed")
@@ -254,7 +260,11 @@ def main() -> int:
         top_level_directories = [
             path
             for path in Path("/").iterdir()
-            if path.is_dir() and path.name not in RUNTIME_TOP_LEVEL
+            # Resolve data directories through their real top-level entry.
+            # Mounting a symlink after its target has already been hidden can
+            # fail (e.g. /man -> /share/man). Runtime targets remain visible
+            # via their real path; all other real top-level dirs are masked.
+            if path.is_dir() and not path.is_symlink() and path.name not in RUNTIME_TOP_LEVEL
         ]
 
         # /tmp needs a private copy of the generated code; all other data

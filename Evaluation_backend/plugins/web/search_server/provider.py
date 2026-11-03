@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from typing import Any, Dict, List
 from urllib.parse import urlparse
@@ -131,10 +132,14 @@ def _with_search_path(value: str) -> str:
     return f"{value}/search"
 
 
-def _payload(query: str) -> Dict[str, str]:
+def _payload(query: str) -> Dict[str, Any]:
     if any("\u4E00" <= char <= "\u9FFF" for char in query):
-        return {"q": query, "location": "China", "gl": "cn", "hl": "zh-cn"}
-    return {"q": query, "location": "United States", "gl": "us", "hl": "en"}
+        payload = {"q": query, "location": "China", "gl": "cn", "hl": "zh-cn"}
+    else:
+        payload = {"q": query, "location": "United States", "gl": "us", "hl": "en"}
+    if os.getenv("GLASSEEK_SEARCH_TOP10") == "1":
+        payload["num"] = 10
+    return payload
 
 
 def _parse_search_text(text: str, limit: int) -> List[Dict[str, Any]]:

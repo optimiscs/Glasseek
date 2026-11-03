@@ -14,6 +14,7 @@ loaded) so this module never imports ``cli`` at import time -> no import cycle.
 
 from __future__ import annotations
 
+import os
 import sys
 
 from rich.markup import escape as _escape
@@ -273,7 +274,8 @@ class CLIAgentSetupMixin:
             # chain, walk to the descendant that actually holds the messages.
             # See #15000 and SessionDB.resolve_resume_session_id.
             try:
-                resolved_id = self._session_db.resolve_resume_session_id(self.session_id)
+                resolved_id = (self.session_id if os.environ.get('GLASSEEK_RESUME_PIN_SESSION') == '1'
+                               else self._session_db.resolve_resume_session_id(self.session_id))
             except Exception:
                 resolved_id = self.session_id
             if resolved_id and resolved_id != self.session_id:
@@ -471,7 +473,8 @@ class CLIAgentSetupMixin:
         # If the requested session is the (empty) head of a compression chain,
         # walk to the descendant that actually holds the messages. See #15000.
         try:
-            resolved_id = self._session_db.resolve_resume_session_id(self.session_id)
+            resolved_id = (self.session_id if os.environ.get('GLASSEEK_RESUME_PIN_SESSION') == '1'
+                           else self._session_db.resolve_resume_session_id(self.session_id))
         except Exception:
             resolved_id = self.session_id
         if resolved_id and resolved_id != self.session_id:
