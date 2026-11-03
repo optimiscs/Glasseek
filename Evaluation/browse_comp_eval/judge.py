@@ -601,6 +601,8 @@ def load_prediction_records(conv_dir: Path) -> list[PredictionRecord]:
     for path in sorted(conv_dir.rglob("*.json")):
         raw = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(raw, dict):
+            if os.getenv('GLASSEEK_JUDGE_TERMINAL_ONLY') == '1' and raw.get('status') not in {'success', 'failed', 'policy_violation'}:
+                continue
             records.append(prediction_record_from_raw(path, raw))
     return records
 

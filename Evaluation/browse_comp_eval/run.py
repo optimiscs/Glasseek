@@ -16,6 +16,7 @@ from .endpoint_health import (
 from .hermes_client import HermesClient, HermesConfig, MultiEndpointHermesClient
 from .endpoint_registry import EndpointRegistryError, load_registry, model_entries
 from .runner import BrowseCompRunner, RunnerConfig
+from .concurrency_ramp import ConcurrencyRamp
 from .whitelist import (
     DEFAULT_TOOL_WHITELIST,
     normalize_skill_whitelist,
@@ -141,6 +142,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--save-name", help="Output run name. Defaults to a filesystem-safe model name")
     parser.add_argument("--repeats", type=int, default=1, help="How many times to run each question")
     parser.add_argument("--num-workers", type=int, default=4, help="Parallel Hermes subprocesses")
+    parser.add_argument("--ramp-metrics-url", default="", help="Enable concurrency ramp using comma-separated vLLM /metrics URLs")
+    parser.add_argument("--ramp-registry", action="store_true", help="Follow the evaluator endpoint registry for vLLM metrics")
+    parser.add_argument("--ramp-start", type=int, default=2)
+    parser.add_argument("--ramp-max", type=int, default=16)
+    parser.add_argument("--ramp-step", type=int, default=2)
+    parser.add_argument("--ramp-window", type=_positive_float, default=90)
+    parser.add_argument("--ramp-interval", type=_positive_float, default=5)
     parser.add_argument("--max-rounds", type=int, default=60, help="Hermes max turns per run")
     parser.add_argument("--max-retries", type=int, default=3, help="Retries per run when Hermes fails")
     parser.add_argument("--timeout-seconds", type=int, help="Per-attempt subprocess timeout. Defaults to no subprocess timeout")
@@ -384,6 +392,9 @@ def main(argv: list[str] | None = None) -> int:
     if endpoint_registry is not None and not endpoint_registry.is_absolute():
         endpoint_registry = (project_root / endpoint_registry).resolve()
     registry_mode = endpoint_registry is not None
+    if args.ramp_registry and (not registry_mode or args.ramp_metrics_url):
+        print("--ramp-registry requires --endpoint-registry and excludes --ramp-metrics-url", file=sys.stderr)
+        return 2
     valid_api_modes = {"chat_completions", "codex_responses"}
     if any(mode not in valid_api_modes for mode in api_modes):
         print("--api-modes values must be chat_completions or codex_responses", file=sys.stderr)
@@ -825,6 +836,13 @@ def main(argv: list[str] | None = None) -> int:
             numbered_output=args.numbered_output,
             rerun_failed=rerun_failed,
             resume_from_dir=resume_from_dir,
+            concurrency_ramp=(ConcurrencyRamp(args.ramp_metrics_url, output_base / "concurrency.jsonl",
+                                               start=args.ramp_start, maximum=args.ramp_max,
+                                               step=args.ramp_step, window=args.ramp_window,
+                                               interval=args.ramp_interval,
+                                               endpoint_source=(client.endpoint_registry_state if args.ramp_registry else None),
+                                               allow_preemption=os.getenv('GLASSEEK_ALLOW_KV_PREEMPTION') == '1')
+                              if args.ramp_metrics_url or args.ramp_registry else None),
         ),
     )
     all_runs = [
@@ -849,8 +867,11 @@ def main(argv: list[str] | None = None) -> int:
     start_watchdog = getattr(client, "start_watchdog", None)
     stop_watchdog = getattr(client, "stop_watchdog", None)
     ags_close_all = getattr(ags_backend, "close_all", None)
-    if callable(ags_close_all):
-        previous_handlers = _install_ags_signal_handlers(ags_close_all)
+    def _stop_inflight():
+        runner.request_stop()
+        if callable(ags_close_all):
+            ags_close_all()
+    previous_handlers = _install_ags_signal_handlers(_stop_inflight)
     try:
         if callable(start_watchdog):
             start_watchdog()
@@ -876,8 +897,7 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"AGS cleanup error: {error}", file=sys.stderr)
             except Exception:
                 print("AGS cleanup failed", file=sys.stderr)
-            finally:
-                _restore_signal_handlers(previous_handlers)
+        _restore_signal_handlers(previous_handlers)
         if resume_from_dir is not None:
             overall_metrics = runner.rewrite_summary(all_runs)
             overall_complete = (

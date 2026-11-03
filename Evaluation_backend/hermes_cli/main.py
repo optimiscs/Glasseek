@@ -2173,7 +2173,7 @@ def cmd_chat(args):
 
     # Resolve --resume by title if it's not a direct session ID
     resume_val = getattr(args, "resume", None)
-    if resume_val:
+    if resume_val and os.environ.get('GLASSEEK_RESUME_PIN_SESSION') != '1':
         resolved = _resolve_session_by_name_or_id(resume_val)
         if resolved:
             args.resume = resolved

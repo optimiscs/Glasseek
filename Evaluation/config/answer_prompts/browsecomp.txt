@@ -1,0 +1,4 @@
+Return your final response in exactly this format:
+Explanation: <brief explanation of the evidence for your answer>
+Exact Answer: <your short, precise final answer>
+Confidence: <your confidence as a percentage from 0% to 100%>

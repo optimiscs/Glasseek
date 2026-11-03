@@ -47,6 +47,17 @@ from tools.tool_result_storage import (
 
 logger = logging.getLogger(__name__)
 
+
+def _log_tool_timing(agent, tool_call, function_name, duration, outcome):
+    """Record an unambiguous span without logging tool arguments or results."""
+    logger.info("glasseek_tool_timing %s", json.dumps({
+        "session_id": getattr(agent, "session_id", "") or "",
+        "tool_call_id": getattr(tool_call, "id", "") or "",
+        "tool_name": function_name,
+        "duration_seconds": max(0.0, float(duration)),
+        "outcome": outcome,
+    }, ensure_ascii=True, separators=(",", ":")))
+
 # Maximum number of concurrent worker threads for parallel tool execution.
 # Mirrors the constant in ``run_agent`` for tests/imports that look here.
 _MAX_TOOL_WORKERS = 8
@@ -517,6 +528,7 @@ def execute_tool_calls_concurrent(agent, assistant_message, messages: list, effe
                 )
                 duration = time.time() - start
                 logger.info("tool %s cancelled (%.2fs)", function_name, duration)
+                _log_tool_timing(agent, tool_call, function_name, duration, "cancelled")
                 results[index] = (function_name, function_args, result, duration, True, False, middleware_trace)
                 return
             except Exception as tool_error:
@@ -524,6 +536,7 @@ def execute_tool_calls_concurrent(agent, assistant_message, messages: list, effe
                 logger.error("_invoke_tool raised for %s: %s", function_name, tool_error, exc_info=True)
             duration = time.time() - start
             is_error, _ = _detect_tool_failure(function_name, result)
+            _log_tool_timing(agent, tool_call, function_name, duration, "failed" if is_error else "completed")
             if is_error:
                 logger.info("tool %s failed (%.2fs): %s", function_name, duration, result[:200])
             else:
@@ -1299,6 +1312,7 @@ def execute_tool_calls_sequential(agent, assistant_message, messages: list, effe
         # Log tool errors to the persistent error log so [error] tags
         # in the UI always have a corresponding detailed entry on disk.
         _is_error_result, _ = _detect_tool_failure(function_name, function_result)
+        _log_tool_timing(agent, tool_call, function_name, tool_duration, "failed" if _is_error_result else "completed")
         # The agent-runtime tools above (todo, session_search, memory,
         # context-engine, memory-manager, clarify, delegate_task) are
         # dispatched inline — they never reach handle_function_call, so the

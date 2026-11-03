@@ -1123,6 +1123,13 @@ def execute_code(
     filesystem_access = _get_filesystem_access()
     network_access = _get_network_access()
     tool_access = _get_tool_access()
+    remote_pure_host = os.environ.get("HERMES_REMOTE_PURE_COMPUTE", "").strip()
+    if remote_pure_host and (
+        remote_pure_host != "Lab3090"
+        or (filesystem_access, network_access, tool_access) != ("none", "none", "none")
+        or _get_execution_mode() != "strict"
+    ):
+        return json.dumps({"status": "error", "error": "remote pure-compute sandbox requires strict none/none/none policy and the configured trusted host", "tool_calls_made": 0, "duration_seconds": 0})
     if network_access == "none" and filesystem_access != "none":
         return json.dumps({
             "status": "error",
@@ -1143,7 +1150,7 @@ def execute_code(
             "tool_calls_made": 0,
             "duration_seconds": 0,
         }, ensure_ascii=False)
-    if filesystem_access == "none" and env_type != "local":
+    if filesystem_access == "none" and env_type != "local" and not remote_pure_host:
         return json.dumps({
             "status": "error",
             "error": (
@@ -1153,7 +1160,7 @@ def execute_code(
             "tool_calls_made": 0,
             "duration_seconds": 0,
         }, ensure_ascii=False)
-    if filesystem_access == "none":
+    if filesystem_access == "none" and not remote_pure_host:
         isolation_error = _filesystem_isolation_preflight()
         if isolation_error:
             return json.dumps({
@@ -1176,6 +1183,10 @@ def execute_code(
             "tool_calls_made": 0,
             "duration_seconds": 0,
         }, ensure_ascii=False)
+
+    if remote_pure_host:
+        from tools.remote_pure_compute import execute as execute_remote_pure
+        return execute_remote_pure(code, remote_pure_host, _load_config().get("timeout", DEFAULT_TIMEOUT))
 
     if env_type != "local":
         return _execute_remote(code, task_id, enabled_tools)

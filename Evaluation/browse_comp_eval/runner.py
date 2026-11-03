@@ -3,6 +3,7 @@ from __future__ import annotations
 import concurrent.futures
 import collections
 import json
+import os
 import shutil
 import threading
 import time
@@ -13,6 +14,7 @@ from pathlib import Path
 from typing import Iterable
 
 from .dataset import RunSpec
+from .concurrency_ramp import ConcurrencyRamp
 from .endpoint_health import EndpointWatchdogAbort
 from .hermes_client import HermesClient
 from .whitelist import find_policy_violations
@@ -32,6 +34,7 @@ class RunnerConfig:
     numbered_output: bool = False
     rerun_failed: bool = False
     resume_from_dir: Path | None = None
+    concurrency_ramp: ConcurrencyRamp | None = None
 
 
 class BrowseCompRunner:
@@ -39,6 +42,15 @@ class BrowseCompRunner:
         self.client = client
         self.config = config
         self._summary_lock = threading.Lock()
+        self._stop_requested = threading.Event()
+
+    def request_stop(self) -> None:
+        """Stop in-flight child process groups without consuming attempts."""
+        self._stop_requested.set()
+        for client in getattr(self.client, 'clients', [self.client]):
+            cancel = getattr(client, 'cancel_active', None)
+            if callable(cancel):
+                threading.Thread(target=cancel, args=('evaluation interrupted',), daemon=True).start()
 
     def run(self, specs: Iterable[RunSpec]) -> dict[str, int]:
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
@@ -60,11 +72,14 @@ class BrowseCompRunner:
         max_workers = max(1, len(pending))
         unscheduled = collections.deque(pending)
         future_to_spec: dict[concurrent.futures.Future, RunSpec] = {}
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        ramp_context = self.config.concurrency_ramp or nullcontext()
+        with ramp_context, concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             completed = 0
             aborted = False
             while unscheduled or future_to_spec:
                 capacity = self._scheduling_capacity()
+                if self.config.concurrency_ramp is not None:
+                    capacity = min(capacity, self.config.concurrency_ramp.current_limit)
                 while unscheduled and len(future_to_spec) < capacity:
                     spec = unscheduled.popleft()
                     future_to_spec[executor.submit(self._run_one, spec)] = spec
@@ -222,7 +237,7 @@ class BrowseCompRunner:
         status = existing.get("status")
         if status == "failed":
             return (
-                self.config.rerun_failed
+                (self.config.rerun_failed or (os.environ.get('GLASSEEK_RESUME_INTERRUPTED') == '1' and existing.get('attempt_consumed') is False))
                 and self._completed_attempt_count(existing) < max(1, self.config.max_retries)
             )
         return status not in self.config.skip_statuses
@@ -237,6 +252,8 @@ class BrowseCompRunner:
         excluded_generations: dict[int, int] = {}
 
         while attempt <= max_retries:
+            if self._stop_requested.is_set():
+                return {'status': 'interrupted', 'question_id': spec.question_id, 'run_id': spec.run_id}
             bind = getattr(self.client, "bind", None)
             client_context = (
                 bind(excluded_generations=excluded_generations)
@@ -246,6 +263,8 @@ class BrowseCompRunner:
             rebind = False
             with client_context as client:
                 while attempt <= max_retries:
+                    if self._stop_requested.is_set():
+                        return {'status': 'interrupted', 'question_id': spec.question_id, 'run_id': spec.run_id}
                     if self.config.workspace_namespace:
                         attempt_workspace = (
                             self.config.workspace_dir
@@ -281,6 +300,8 @@ class BrowseCompRunner:
                             }
                         )
                         self._write_result(spec, checkpoint, append_summary=False)
+                        if self._stop_requested.is_set():
+                            return checkpoint
                         rebind = True
                         break
 
@@ -337,6 +358,12 @@ class BrowseCompRunner:
 
         if not append_summary:
             return
+
+        if result.get('status') in {'success', 'failed', 'policy_violation'} and result.get('attempt_consumed', True):
+            from .resume_checkpoint import checkpoint_path
+            workspace = result.get('workspace_dir')
+            if workspace:
+                checkpoint_path(Path(workspace)).unlink(missing_ok=True)
 
         summary = self._summary_record(result, path)
         with self._summary_lock:
