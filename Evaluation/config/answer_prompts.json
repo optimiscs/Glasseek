@@ -1,0 +1,7 @@
+{
+  "default": "answer_prompts/default.txt",
+  "datasets": {
+    "quest_qwen27b_128": "answer_prompts/browsecomp.txt",
+    "browsecomp*": "answer_prompts/browsecomp.txt"
+  }
+}

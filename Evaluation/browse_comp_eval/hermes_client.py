@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import urlparse
 
+from .answer_prompts import load_answer_prompt
 from .dataset import DatasetItem, RunSpec
 from .endpoint_health import (
     EndpointHealthManager,
@@ -36,6 +37,7 @@ from .session_reader import (
     load_session,
     session_snapshot_path,
 )
+from .resume_checkpoint import checkpoint_path, existing_session, write_checkpoint
 
 
 CUSTOM_SYSTEM_PROMPT_FILENAME = "browse_comp_custom_system_prompt.txt"
@@ -240,13 +242,25 @@ class HermesClient:
         self._setup_profile(profile, browser_cdp_url=browser_cdp_url)
         agent_log_offset = profile_agent_log_size(profile)
 
-        query = build_query(spec)
+        resume_enabled = os.environ.get('GLASSEEK_RESUME_INTERRUPTED') == '1'
+        resume_session = (existing_session(workspace_dir, run_id=spec.run_id, profile=profile,
+                                           hermes_home=hermes_home()) if resume_enabled else None)
+        if resume_enabled and not checkpoint_path(workspace_dir).exists():
+            write_checkpoint(workspace_dir, run_id=spec.run_id, profile=profile)
+        query = ('Continue the interrupted research task using the existing conversation. '
+                 'Do not repeat completed work; finish the original question and use the requested answer format.'
+                 if resume_session else build_query(spec, dataset=self.config.dataset))
         cmd = self._build_chat_command(profile, query)
+        if resume_session:
+            cmd.extend(['--resume', resume_session])
+            print(f'Resuming {spec.run_id} from session {resume_session}', flush=True)
         env = self._build_env(
             spec,
             browser_cdp_url=browser_cdp_url,
             mock_search_server=mock_search_server,
         )
+        if resume_session:
+            env['GLASSEEK_RESUME_PIN_SESSION'] = '1'
 
         started = time.time()
         stdout = ""
@@ -1204,22 +1218,13 @@ class MultiEndpointHermesClient:
             ).start()
 
 
-def build_query(spec: RunSpec) -> str:
-    if spec.item.type.startswith("gaia_validation"):
-        task_label = "GAIA text-only evaluation task"
-    elif spec.item.type.startswith("seal_0"):
-        task_label = "SEAL-0 search-augmented factual evaluation task"
-    elif spec.item.type.startswith("xbench_deepsearch"):
-        task_label = "XBench DeepSearch evaluation task"
-    elif spec.item.type.startswith("widesearch"):
-        task_label = "WideSearch broad information-seeking evaluation task"
-    else:
-        task_label = "browse-comparison evaluation task"
+def build_query(spec: RunSpec, dataset: str = "") -> str:
+    _, answer_prompt = load_answer_prompt(dataset)
     return (
         f"{RESEARCH_TASK_PREAMBLE}\n\n"
         f"{RESEARCH_GUIDANCE}\n\n"
         f"Question:\n{spec.item.question}\n\n"
-        f"{RESEARCH_ANSWER_REQUIREMENTS}"
+        f"{answer_prompt}"
     )
 
 

@@ -28,6 +28,13 @@ Common options:
   --workers-per-endpoint N      Concurrent runs per endpoint (default: 10)
   --endpoint-registry-refresh-interval N  Seconds between registry reloads (default: 30)
   --workers-per-key LIMITS      One limit for all keys, or aligned CSV limits
+  --ramp-metrics-url URLS       Comma-separated vLLM metrics URLs for concurrency ramp
+  --ramp-registry               Discover metrics endpoints from the dynamic registry
+  --ramp-start N                Initial agent limit (default: 2)
+  --ramp-max N                  Maximum agent limit (default: 16)
+  --ramp-step N                 Increment/decrement (default: 2)
+  --ramp-window SECONDS         Stable period before increment (default: 90)
+  --ramp-interval SECONDS       Metrics polling interval (default: 5)
   --save-name NAME              Output run name (default: safe model name)
   --repeats N                   Runs per question (default: 1)
   --expected-questions N        Validate the dataset size; omitted = any size
@@ -144,6 +151,13 @@ EXPECTED_QUESTIONS="${EXPECTED_QUESTIONS:-}"
 REPEATS="${REPEATS:-1}"
 WORKERS_PER_ENDPOINT="${WORKERS_PER_ENDPOINT:-10}"
 WORKERS_PER_KEY="${WORKERS_PER_KEY:-}"
+RAMP_METRICS_URL="${RAMP_METRICS_URL:-}"
+RAMP_REGISTRY="${RAMP_REGISTRY:-0}"
+RAMP_START="${RAMP_START:-2}"
+RAMP_MAX="${RAMP_MAX:-16}"
+RAMP_STEP="${RAMP_STEP:-2}"
+RAMP_WINDOW="${RAMP_WINDOW:-90}"
+RAMP_INTERVAL="${RAMP_INTERVAL:-5}"
 MAX_ROUNDS="${MAX_ROUNDS:-500}"
 MAX_RETRIES="${MAX_RETRIES:-3}"
 TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-3600}"
@@ -210,6 +224,8 @@ fi
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
+    --ramp-registry)
+      RAMP_REGISTRY=1; shift ;;
     --model|--models|--provider|--save-name|--dataset|--data-path|--expected-questions)
       need_value "$@"
       name="${1#--}"
@@ -217,7 +233,7 @@ while [[ "$#" -gt 0 ]]; do
       printf -v "${name^^}" '%s' "$2"
       shift 2
       ;;
-    --workers-per-endpoint|--workers-per-key|--repeats|--max-rounds|--max-retries|--timeout-seconds|--context-length|--compression-threshold|--max-tokens|--temperature|--endpoint-watchdog-interval|--endpoint-watchdog-timeout|--endpoint-watchdog-failures|--endpoint-watchdog-recovery-successes|--all-endpoints-down-timeout|--endpoint-registry-refresh-interval)
+    --ramp-metrics-url|--ramp-start|--ramp-max|--ramp-step|--ramp-window|--ramp-interval|--workers-per-endpoint|--workers-per-key|--repeats|--max-rounds|--max-retries|--timeout-seconds|--context-length|--compression-threshold|--max-tokens|--temperature|--endpoint-watchdog-interval|--endpoint-watchdog-timeout|--endpoint-watchdog-failures|--endpoint-watchdog-recovery-successes|--all-endpoints-down-timeout|--endpoint-registry-refresh-interval)
       need_value "$@"
       name="${1#--}"
       name="${name//-/_}"
@@ -690,6 +706,11 @@ if [[ "${PREPARE_ONLY}" == "1" ]]; then
 fi
 
 optional_args=()
+if [[ -n "${RAMP_METRICS_URL}" || "${RAMP_REGISTRY}" == 1 ]]; then
+  [[ -n "${RAMP_METRICS_URL}" ]] && optional_args+=(--ramp-metrics-url "${RAMP_METRICS_URL}")
+  [[ "${RAMP_REGISTRY}" == 1 ]] && optional_args+=(--ramp-registry)
+  optional_args+=(--ramp-start "${RAMP_START}" --ramp-max "${RAMP_MAX}" --ramp-step "${RAMP_STEP}" --ramp-window "${RAMP_WINDOW}" --ramp-interval "${RAMP_INTERVAL}")
+fi
 [[ -n "${SAVE_NAME}" ]] && optional_args+=(--save-name "${SAVE_NAME}")
 [[ -n "${RESUME_FROM}" ]] && optional_args+=(--resume-from "${RESUME_FROM}")
 [[ "${HERMES_QUIET}" == "0" ]] && optional_args+=(--no-quiet)
