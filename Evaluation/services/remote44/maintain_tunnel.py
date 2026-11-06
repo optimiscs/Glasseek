@@ -7,7 +7,7 @@ import time
 
 local, remote = int(sys.argv[1]), int(sys.argv[2])
 adopted = int(sys.argv[3]) if len(sys.argv)>3 else 0
-root=pathlib.Path('/root/autodl-tmp/Glasseek/Evaluation/data/runtime')
+root=pathlib.Path(os.environ.get('GLASSEEK_RUNTIME_DIR', pathlib.Path(__file__).resolve().parents[2] / 'data/runtime'))
 
 def is_adopted_alive(pid):
  try:
@@ -20,7 +20,7 @@ def is_adopted_alive(pid):
 while adopted and is_adopted_alive(adopted):time.sleep(2)
 while True:
  cmd=['ssh','-o','BatchMode=yes','-o','ExitOnForwardFailure=yes','-o','ConnectTimeout=10',
-      '-o','ServerAliveInterval=15','-o','ServerAliveCountMax=3','-N','-L',f'127.0.0.1:{local}:127.0.0.1:{remote}','44']
+      '-o','ServerAliveInterval=15','-o','ServerAliveCountMax=3','-N','-L',f'127.0.0.1:{local}:127.0.0.1:{remote}',os.environ.get('GLASSEEK_TUNNEL_HOST', '44')]
  print(time.strftime('%FT%T%z'),'connecting',local,remote,flush=True)
  try:
   p=subprocess.Popen(cmd);(root/f'ssh44-tunnel-{local}.pid').write_text(str(p.pid));rc=p.wait()

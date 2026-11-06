@@ -5179,11 +5179,17 @@ class AIAgent:
         file reads/writes may do so only when their target paths do not overlap.
         """
         tool_calls = assistant_message.tool_calls
+        from agent.glasseek_tool_budget import reserve
+        admitted = reserve(len(tool_calls))
+        allowed_calls, denied_calls = tool_calls[:admitted], tool_calls[admitted:]
+        assistant_message.tool_calls = allowed_calls
 
         # Allow _vprint during tool execution even with stream consumers
         self._executing_tools = True
         try:
-            if not _should_parallelize_tool_batch(tool_calls):
+            if not allowed_calls:
+                return
+            if not _should_parallelize_tool_batch(allowed_calls):
                 return self._execute_tool_calls_sequential(
                     assistant_message, messages, effective_task_id, api_call_count
                 )
@@ -5192,6 +5198,11 @@ class AIAgent:
                 assistant_message, messages, effective_task_id, api_call_count
             )
         finally:
+            assistant_message.tool_calls = tool_calls
+            for denied in denied_calls:
+                messages.append({"role": "tool", "tool_call_id": denied.id,
+                    "name": denied.function.name,
+                    "content": '{"status":"tool_budget_denied","executed":false,"error":"Tool call budget exhausted. Give the final answer using existing evidence; no more tools are allowed."}'})
             self._executing_tools = False
 
     def _dispatch_delegate_task(self, function_args: dict) -> str:

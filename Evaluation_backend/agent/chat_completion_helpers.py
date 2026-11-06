@@ -16,6 +16,7 @@ sites unchanged.  Symbols that tests patch on ``run_agent`` (e.g.
 from __future__ import annotations
 
 import json
+import hashlib
 import logging
 import os
 import re
@@ -1359,6 +1360,11 @@ def handle_max_iterations(
 
     messages.append({"role": "user", "content": summary_request})
 
+    # This branch bypasses the main loop's API timing log. Record the complete
+    # finalization span (including an empty-response retry) against its answer.
+    summary_started_at = time.time()
+    summary_started_clock = time.monotonic()
+
     try:
         # Build API messages, stripping internal-only fields
         # (finish_reason, reasoning) that strict APIs like Mistral reject with 422
@@ -1456,6 +1462,9 @@ def handle_max_iterations(
                 "model": agent.model,
                 "messages": api_messages,
             }
+            if os.environ.get("GLASSEEK_TOOL_CALL_BUDGET_FILE"):
+                summary_kwargs["tool_choice"] = "none"
+
             if _summary_temperature is not None:
                 summary_kwargs["temperature"] = _summary_temperature
             if agent.max_tokens is not None:
@@ -1547,6 +1556,9 @@ def handle_max_iterations(
                     "model": agent.model,
                     "messages": api_messages,
                 }
+                if os.environ.get("GLASSEEK_TOOL_CALL_BUDGET_FILE"):
+                    summary_kwargs["tool_choice"] = "none"
+
                 if _summary_temperature is not None:
                     summary_kwargs["temperature"] = _summary_temperature
                 if agent.max_tokens is not None:
@@ -1574,6 +1586,13 @@ def handle_max_iterations(
         logger.warning(f"Failed to get summary response: {e}")
         final_response = f"{fallback_prefix} but couldn't summarize. Error: {str(e)}"
 
+    if messages and messages[-1].get("role") == "assistant" and messages[-1].get("content") == final_response:
+        logger.info("glasseek_finalization_timing %s", json.dumps({
+            "session_id": getattr(agent, "session_id", "") or "",
+            "content_sha256": hashlib.sha256(final_response.encode()).hexdigest(),
+            "started_at": summary_started_at,
+            "duration_seconds": max(0.0, time.monotonic() - summary_started_clock),
+        }, separators=(",", ":")))
     return final_response
 
 

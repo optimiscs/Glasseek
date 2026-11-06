@@ -90,8 +90,8 @@ def _read_search_server_cfg() -> Dict[str, Any]:
             or _env_value("SERPER_API_KEY")
             or str(_cfg_value(root_cfg, "api_key", "") or "").strip()
         ),
-        "timeout": float(_cfg_value(root_cfg, "timeout", 30.0) or 30.0),
-        "max_retries": max(1, int(_cfg_value(root_cfg, "max_retries", 3) or 3)),
+        "timeout": float(_env_value('SEARCH_SERVER_TIMEOUT') or _cfg_value(root_cfg, "timeout", 60.0) or 60.0),
+        "max_retries": max(1, int(_env_value('SEARCH_SERVER_MAX_ATTEMPTS') or _cfg_value(root_cfg, "max_retries", 2) or 2)),
         "retry_delay": float(_cfg_value(root_cfg, "retry_delay", 2.0) or 2.0),
     }
 
@@ -277,13 +277,20 @@ def _search_server_response(query: str, limit: int = 5) -> Dict[str, Any]:
                 timeout=cfg["timeout"],
                 trust_env=False,
             )
-            response.raise_for_status()
-            data = response.json()
+            try:
+                data = response.json()
+            except ValueError:
+                response.raise_for_status()
+                raise
             if isinstance(data, dict) and data.get("success") is False:
                 return {
                     "success": False,
                     "error": str(data.get("error") or "search_server returned success=false"),
+                    "error_code": data.get('error_code', 'search_server_error'),
+                    "retryable": data.get('retryable', False),
+                    "retry_after": data.get('retry_after', 0),
                 }
+            response.raise_for_status()
             normalized = data.get("data", data) if isinstance(data, dict) else data
             web = _normalize_search_data(normalized, limit)
             return {"success": True, "data": {"web": web}}
@@ -293,6 +300,9 @@ def _search_server_response(query: str, limit: int = 5) -> Dict[str, Any]:
         except httpx.HTTPStatusError as exc:
             last_error = f"HTTP {exc.response.status_code}: {exc.response.text}"
             logger.warning("search_server HTTP error on attempt %d: %s", attempt, last_error)
+            if exc.response.status_code < 500:
+                return {'success': False, 'error': last_error,
+                        'error_code': 'search_http_error', 'retryable': False}
         except httpx.RequestError as exc:
             last_error = f"request error: {exc}"
             logger.warning("search_server request error on attempt %d: %s", attempt, exc)

@@ -28,6 +28,8 @@ import logging
 import os
 import socket
 import asyncio
+import threading
+import time
 from urllib.parse import quote, urlparse, urlsplit, urlunsplit
 
 from utils import is_truthy_value
@@ -402,72 +404,109 @@ async def async_is_safe_url(url: str) -> bool:
     return await asyncio.to_thread(is_safe_url, url)
 
 
+_doh_cache = {}
+_doh_lock = threading.Lock()
+
+
+class DNSVerificationError(RuntimeError):
+    pass
+
+
 def _doh_public_addresses(hostname: str) -> list:
-    """Resolve both address families via authenticated DNS over HTTPS.
-
-    A failed or incomplete response fails closed. CNAME records are ignored;
-    the resolver returns the final address records alongside them.
-    """
+    """Verify A and AAAA through TLS, with explicit proxy and bounded caching."""
     import requests
+    proxy = os.getenv('GLASSEEK_DOH_PROXY') or os.getenv('HTTPS_PROXY') or os.getenv('https_proxy')
+    cache_key = (hostname, proxy)
+    with _doh_lock:
+        cached = _doh_cache.get(cache_key)
+        if cached and cached[0] > time.monotonic():
+            return list(cached[1])
+    failures = []
+    for endpoint in ('https://cloudflare-dns.com/dns-query', 'https://dns.google/resolve'):
+        session = requests.Session()
+        session.trust_env = False
+        if proxy:
+            session.proxies.update({'https': proxy})
+        addresses = []
+        ttls = []
+        try:
+            for record_type in ('A', 'AAAA'):
+                response = session.get(endpoint, params={'name': hostname, 'type': record_type},
+                    headers={'Accept': 'application/dns-json'}, timeout=(3, 5))
+                response.raise_for_status()
+                data = response.json()
+                if data.get('Status') != 0 or data.get('TC'):
+                    raise DNSVerificationError('DNS returned no usable complete answer')
+                for record in data.get('Answer', []):
+                    if record.get('type') in (1, 28):
+                        addresses.append(ipaddress.ip_address(record['data']))
+                        ttls.append(max(0, int(record.get('TTL', 0))))
+            if not addresses:
+                raise DNSVerificationError('DNS returned no addresses')
+            ttl = min([300] + ttls)
+            with _doh_lock:
+                if len(_doh_cache) >= 2048:
+                    _doh_cache.clear()
+                _doh_cache[cache_key] = (time.monotonic() + ttl, tuple(addresses))
+            return addresses
+        except (requests.RequestException, ValueError, DNSVerificationError) as exc:
+            failures.append(type(exc).__name__)
+        finally:
+            session.close()
+    raise DNSVerificationError('DNS verification unavailable: ' + ', '.join(failures))
 
-    addresses = []
-    for record_type in ("A", "AAAA"):
-        response = requests.get(
-            "https://cloudflare-dns.com/dns-query",
-            params={"name": hostname, "type": record_type},
-            headers={"Accept": "application/dns-json"}, timeout=8,
-        )
-        response.raise_for_status()
-        data = response.json()
-        if data.get("Status") != 0 or data.get("TC"):
-            raise ValueError("DNS over HTTPS returned an incomplete response")
-        for record in data.get("Answer", []):
-            if record.get("type") in (1, 28):
-                addresses.append(ipaddress.ip_address(record["data"]))
-    if not addresses:
-        raise ValueError("DNS over HTTPS returned no addresses")
-    return addresses
 
+def check_external_fetch_url(url: str) -> tuple[bool, str, str]:
+    """Distinguish an unsafe address from a failed public-DNS verification.
 
-def is_safe_external_fetch_url(url: str) -> bool:
-    """Review the specific poisoned-Teredo DNS pattern for remote fetches.
-
-    Never disregard locally resolved private addresses, literal addresses, or
-    blocked hostnames. Only the observed 2001::/32 DNS corruption is eligible
-    for independent DoH verification. All verified addresses must be public.
+    Explicit private addresses remain blocked. Local DNS failures and the
+    known poisoned Teredo pattern require independent public A/AAAA answers.
     """
     try:
         parsed = urlparse(url)
-        host = (parsed.hostname or "").strip().lower().rstrip(".")
-        if parsed.scheme.lower() not in {"http", "https"} or not host or host in _BLOCKED_HOSTNAMES:
-            return False
+        host = (parsed.hostname or '').strip().lower().rstrip('.')
+        if parsed.scheme.lower() not in {'http', 'https'} or not host:
+            return False, 'invalid_url', 'Invalid HTTP/HTTPS URL'
+        if host in _BLOCKED_HOSTNAMES:
+            return False, 'private_address', 'Blocked: private or internal hostname'
         try:
             ipaddress.ip_address(host)
-            return is_safe_url(url)
+            allowed = is_safe_url(url)
+            return allowed, '' if allowed else 'private_address', '' if allowed else 'Blocked: private or internal address'
         except ValueError:
             pass
-        local_ips = [ipaddress.ip_address(row[4][0]) for row in
-                     socket.getaddrinfo(host, None, socket.AF_UNSPEC, socket.SOCK_STREAM)]
-        if not local_ips:
-            return False
-        teredo = ipaddress.ip_network("2001::/32")
+        try:
+            local_ips = [ipaddress.ip_address(row[4][0]) for row in
+                         socket.getaddrinfo(host, None, socket.AF_UNSPEC, socket.SOCK_STREAM)]
+        except socket.gaierror:
+            local_ips = []
+        teredo = ipaddress.ip_network('2001::/32')
         poisoned = [ip for ip in local_ips if isinstance(ip, ipaddress.IPv6Address) and ip in teredo]
-        if any(_is_blocked_ip(ip) or ip in _ALWAYS_BLOCKED_IPS or
-               any(ip in network for network in _ALWAYS_BLOCKED_NETWORKS)
-               for ip in local_ips if ip not in poisoned):
-            return False
-        if not poisoned:
-            return True
+        def blocked(ip):
+            return (_is_blocked_ip(ip) or ip in _ALWAYS_BLOCKED_IPS or
+                    any(ip in network for network in _ALWAYS_BLOCKED_NETWORKS))
+        if any(blocked(ip) for ip in local_ips if ip not in poisoned):
+            return False, 'private_address', 'Blocked: URL resolves to a private or internal address'
+        if local_ips and not poisoned:
+            return True, '', ''
         resolved = _doh_public_addresses(host)
-        if any(_is_blocked_ip(ip) or ip in _ALWAYS_BLOCKED_IPS or
-               any(ip in network for network in _ALWAYS_BLOCKED_NETWORKS) for ip in resolved):
-            return False
-        logger.info("External fetch DNS verified independently for %s", host)
-        return True
+        if any(blocked(ip) for ip in resolved):
+            return False, 'private_address', 'Blocked: independently verified DNS contains a private address'
+        return True, '', ''
+    except DNSVerificationError as exc:
+        return False, 'dns_verification_failed', str(exc)
     except Exception as exc:
-        logger.warning("External fetch DNS verification failed: %s", type(exc).__name__)
-        return False
+        logger.warning('External fetch DNS verification failed: %s', type(exc).__name__)
+        return False, 'dns_verification_failed', 'DNS verification failed: ' + type(exc).__name__
+
+
+def is_safe_external_fetch_url(url: str) -> bool:
+    return check_external_fetch_url(url)[0]
 
 
 async def async_is_safe_external_fetch_url(url: str) -> bool:
     return await asyncio.to_thread(is_safe_external_fetch_url, url)
+
+
+async def async_check_external_fetch_url(url: str) -> tuple[bool, str, str]:
+    return await asyncio.to_thread(check_external_fetch_url, url)

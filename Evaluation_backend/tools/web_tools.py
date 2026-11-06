@@ -102,7 +102,7 @@ from tools.tool_backend_helpers import (  # noqa: F401
     nous_tool_gateway_unavailable_message,
     prefers_gateway,
 )
-from tools.url_safety import async_is_safe_url, async_is_safe_external_fetch_url, normalize_url_for_request
+from tools.url_safety import async_is_safe_url, async_is_safe_external_fetch_url, async_check_external_fetch_url, normalize_url_for_request
 import sys
 
 logger = logging.getLogger(__name__)
@@ -1031,12 +1031,15 @@ async def web_extract_tool(
             _ensure_web_plugins_loaded()
             verify_external_dns = _get_extract_backend() == "fetch_server"
         for url in normalized_urls:
-            safe = (await async_is_safe_external_fetch_url(url) if verify_external_dns
-                    else await async_is_safe_url(url))
+            if verify_external_dns:
+                safe, error_code, safety_error = await async_check_external_fetch_url(url)
+            else:
+                safe = await async_is_safe_url(url)
+                error_code, safety_error = 'private_address', 'Blocked: URL targets a private or internal network address'
             if not safe:
                 ssrf_blocked.append({
                     "url": url, "title": "", "content": "",
-                    "error": "Blocked: URL targets a private or internal network address",
+                    "error": safety_error, "error_code": error_code,
                 })
             else:
                 safe_urls.append(url)
@@ -1124,6 +1127,7 @@ async def web_extract_tool(
             selected = await select_pages(results)
             trimmed = [{"url": r.get("url", ""), "title": r.get("title", ""),
                         "content": r.get("content", ""), "error": r.get("error"),
+                        **({"error_code": r["error_code"]} if "error_code" in r else {}),
                         **({"retrieval": r["retrieval"]} if "retrieval" in r else {}),
                         **({"blocked_by_policy": r["blocked_by_policy"]} if "blocked_by_policy" in r else {})}
                        for r in selected if isinstance(r, dict)]
