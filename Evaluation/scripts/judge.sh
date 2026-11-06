@@ -230,6 +230,14 @@ fi
 cd "${EVAL_ROOT}"
 [[ "${PRED_ROOT}" = /* ]] || PRED_ROOT="${EVAL_ROOT}/${PRED_ROOT}"
 [[ -d "${PRED_ROOT}/conv" ]] || die "prediction directory not found: ${PRED_ROOT}/conv"
+# Coordinate with the live incremental judge for this baseline run.  Touching
+# the handoff marker lets its in-flight requests finish before final judging.
+if [[ "${PRED_ROOT}" == */glasseek_base9b_rl9b_subset/browsecomp_rl9b_non_timeout_34 ]]; then
+  handoff_dir="$(dirname "${PRED_ROOT}")"
+  touch "${handoff_dir}/.judge-final-handoff"
+  exec 9>"${handoff_dir}/.judge-live.lock"
+  flock -x 9
+fi
 [[ -x "${EVAL_PYTHON}" ]] || die "evaluation Python not found or not executable: ${EVAL_PYTHON}"
 
 prediction_count="$(find "${PRED_ROOT}/conv" -type f -name '*.json' -print | wc -l | tr -d '[:space:]')"
@@ -249,6 +257,11 @@ if [[ "${DRY_RUN}" != "1" ]]; then
   fi
 fi
 
+# The checkpoint reevaluation supervisor explicitly supplies its SSH proxy.
+# Preserve it only for this known local tunnel; the default direct behavior is unchanged.
+if [[ "${HTTPS_PROXY:-}" == "http://127.0.0.1:18200" ]]; then
+  export NO_PROXY="localhost,127.0.0.1,::1" no_proxy="localhost,127.0.0.1,::1"
+else
 if [[ -n "${JUDGE_BASE_URL}" ]]; then
   JUDGE_HOST="${JUDGE_BASE_URL#*://}"
   JUDGE_HOST="${JUDGE_HOST%%/*}"
@@ -260,6 +273,7 @@ if [[ -n "${JUDGE_BASE_URL}" ]]; then
   export no_proxy="${JUDGE_NO_PROXY}"
 fi
 unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
+fi
 export PYTHONUNBUFFERED="${PYTHONUNBUFFERED:-1}"
 
 if [[ "${AUTO_LOG}" == "1" ]]; then
