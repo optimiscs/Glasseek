@@ -16,7 +16,7 @@
 
 Official repository for **Glasseek**, a framework for building deep search agents through verifiable data construction, reinforcement learning with context management, and evaluation with anti-leakage safeguards. Our **Glasseeker-4B** and **Glasseeker-9B** models are built on Qwen3.5-4B and Qwen3.5-9B.
 
-> **Release status:** Our [4B and 9B SFT checkpoints and model card][models] are now available via anonymous access. Our [training datasets and dataset card][datasets] provide **5,762 SFT trajectories covering 4,448 unique questions** and **1,308 RL questions with reference answers**. The data construction pipeline, evaluation runner, and Hermes backend are available in [`Data_curation/`](Data_curation/), [`Evaluation/`](Evaluation/), and [`Evaluation_backend/`](Evaluation_backend/). Training code and RL checkpoints are being prepared for release.
+> **Release status:** Our [4B and 9B SFT checkpoints and model card][models] are now available via anonymous access. Our [training datasets and dataset card][datasets] provide **5,762 SFT trajectories covering 4,448 unique questions** and **1,308 RL questions with reference answers**. The data construction pipeline, evaluation runner, and Hermes backend are available in [`Data_curation/`](Data_curation/), [`Evaluation/`](Evaluation/), and [`Evaluation_backend/`](Evaluation_backend/). The [verl-based SFT and CM-GSPO training implementation](RL_training/README.md) is available; full GPU reproduction is pending. RL checkpoints are being prepared for release.
 
 ## Overview
 
@@ -44,7 +44,7 @@ Performance (%) reported in **Table 2 of the current manuscript**. Higher is bet
 
 The six benchmarks cover English and Chinese web search, text-based agent tasks, reasoning with noisy evidence, and live browsing. **GAIA-Text** is the 103-question text-only subset; **XDS-2510** denotes the 2510 version of xbench-DeepSearch.
 
-Results describe the RL-trained research models in the manuscript. The [released SFT checkpoints and model card][models] provide the SFT-stage results and usage instructions; RL checkpoints and training recipes are forthcoming.
+Results describe the RL-trained research models in the manuscript. The [released SFT checkpoints and model card][models] provide the SFT-stage results and usage instructions; The [SFT and CM-GSPO training recipes](RL_training/README.md) are available; RL checkpoints are forthcoming.
 
 <details>
 <summary><strong>Training ablation: from SFT to CM-GSPO</strong></summary>
@@ -125,18 +125,18 @@ Available resources are linked below; additional links will be added as each art
 - [x] Data construction pipeline
 - [x] 4B and 9B SFT checkpoints with model card
 - [ ] RL checkpoints
-- [ ] SFT recipes and CM-GSPO training code
+- [x] SFT recipes and CM-GSPO training code
 - [x] Evaluation harness, backend tools, and anti-leakage guardrails
 - [ ] Installation, inference, training, and evaluation instructions
 
 ## Repository
 
-The data construction pipeline, evaluation runner, and backend are available now. The RL training directory reserves space for the training code release.
+The data construction pipeline, evaluation runner, backend, and [verl-based SFT/CM-GSPO training code](RL_training/README.md) are available. Training GPU integration and reproduction remain to be validated.
 
 | Directory | Contents or planned contents |
 | :--- | :--- |
 | [`Data_curation/`](Data_curation/) | Released pipeline for seed mining, clue construction, verification, and difficulty evaluation |
-| [`RL_training/`](RL_training/) | CM-GSPO training code and configurations |
+| [`RL_training/`](RL_training/) | verl SFT and CM-GSPO training, data conversion, configurations, and tests |
 | [`Evaluation/`](Evaluation/) | Benchmark runners, evaluation configurations, and reporting |
 | [`Evaluation_backend/`](Evaluation_backend/) | Tool services and evaluation safeguards |
 
