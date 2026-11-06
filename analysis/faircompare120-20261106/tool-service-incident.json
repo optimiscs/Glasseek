@@ -1,0 +1,7 @@
+{
+  "paused_at": "2026-11-06T09:18:02+08:00",
+  "reason": "High search timeout rate, quota exhaustion and DNS verification failures; original results preserved but not suitable for attributing accuracy changes to model weights alone.",
+  "repair_summary": "/root/autodl-tmp/Glasseek/analysis/tool-repair-20261106/summary.json",
+  "requires_new_protocol_manifest": true,
+  "resume_authorized": false
+}

@@ -1,0 +1,17 @@
+{
+  "fair120-20261106-step39": {
+    "success": 1738,
+    "confirmed_zero": 400,
+    "failed": 1819,
+    "timeout": 1784,
+    "excluded": 8
+  },
+  "fair120-20261106-step76": {
+    "failed": 818,
+    "timeout": 817,
+    "success": 83,
+    "unknown": 72,
+    "confirmed_zero": 9,
+    "excluded": 3
+  }
+}

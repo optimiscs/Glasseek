@@ -1,0 +1,191 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "delegate_task",
+      "description": "Spawn one or more subagents to work on tasks in isolated contexts. Each subagent gets its own conversation, terminal session, and toolset. Only the final summary is returned -- intermediate tool results never enter your context window.\n\nTWO MODES (one of 'goal' or 'tasks' is required):\n1. Single task: provide 'goal' (+ optional context, toolsets)\n2. Batch (parallel): provide 'tasks' array with up to 3 items concurrently for this user (configured via delegation.max_concurrent_children in config.yaml). All run in parallel and results are returned together. Nested delegation is OFF for this user (max_spawn_depth=1): every child is a leaf and cannot delegate further. Raise delegation.max_spawn_depth in config.yaml to enable nesting.\n\nWHEN TO USE delegate_task:\n- Reasoning-heavy subtasks (debugging, code review, research synthesis)\n- Tasks that would flood your context with intermediate data\n- Parallel independent workstreams (research A and B simultaneously)\n\nWHEN NOT TO USE (use these instead):\n- Mechanical multi-step work with no reasoning needed -> use execute_code\n- Single tool call -> just call the tool directly\n- Tasks needing user interaction -> subagents cannot use clarify\n- Durable long-running work that must outlive the current turn -> use cronjob (action='create') or terminal(background=True, notify_on_complete=True) instead. delegate_task runs SYNCHRONOUSLY inside the parent turn: if the parent is interrupted (user sends a new message, /stop, /new) the child is cancelled with status='interrupted' and its work is discarded. Children cannot continue in the background.\n\nBUDGET PER SUBAGENT:\nEach subagent runs with a fixed budget: at most 50 tool-calling iterations and 900 seconds of wall-clock time (configured via delegation.max_iterations and delegation.child_timeout_seconds). When either limit is reached, the subagent is forced to produce a final summary and returns with exit_reason='max_iterations' or 'max_time'. Split work into tasks that each fit inside a single subagent budget; do not delegate long-horizon exploration as one task.\n\nIMPORTANT:\n- Subagents have NO memory of your conversation. Pass all relevant info (file paths, error messages, constraints) via the 'context' field.\n- If the user is writing in a non-English language, or asked for output in a specific language / tone / style, say so in 'context' (e.g. \"respond in Chinese\", \"return output in Japanese\"). Otherwise subagents default to English and their summaries will contaminate your final reply with the wrong language.\n- Subagent summaries are SELF-REPORTS, not verified facts. A subagent that claims \"uploaded successfully\" or \"file written\" may be wrong. For operations with external side-effects (HTTP POST/PUT, remote writes, file creation at shared paths, publishing), require the subagent to return a verifiable handle (URL, ID, absolute path, HTTP status) and verify it yourself — fetch the URL, stat the file, read back the content — before telling the user the operation succeeded.\n- Leaf subagents (role='leaf', the default) CANNOT call: delegate_task, clarify, memory, send_message, execute_code.\n- Orchestrator subagents (role='orchestrator') retain delegate_task so they can spawn their own workers, but still cannot use clarify, memory, send_message, or execute_code. Orchestrators are bounded by max_spawn_depth=1 for this user and can be disabled globally via delegation.orchestrator_enabled=false.\n- Each subagent gets its own terminal session (separate working directory and state).\n- Results are always returned as an array, one entry per task.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "goal": {
+            "type": "string",
+            "description": "What the subagent should accomplish. Be specific and self-contained -- the subagent knows nothing about your conversation history."
+          },
+          "context": {
+            "type": "string",
+            "description": "Background information the subagent needs: file paths, error messages, project structure, constraints. The more specific you are, the better the subagent performs."
+          },
+          "toolsets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Toolsets to enable for this subagent. Default: inherits your enabled toolsets. Available toolsets: 'browser', 'coding', 'computer_use', 'cronjob', 'discord', 'discord_admin', 'feishu_doc', 'feishu_drive', 'file', 'homeassistant', 'image_gen', 'kanban', 'search', 'session_search', 'skills', 'spotify', 'terminal', 'todo', 'tts', 'video', 'video_gen', 'vision', 'web', 'x_search', 'yuanbao'. Common patterns: ['terminal', 'file'] for code work, ['web'] for research, ['browser'] for web interaction, ['terminal', 'file', 'web'] for full-stack tasks."
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "goal": {
+                  "type": "string",
+                  "description": "Task goal"
+                },
+                "context": {
+                  "type": "string",
+                  "description": "Task-specific context"
+                },
+                "toolsets": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Toolsets for this specific task. Available: 'browser', 'coding', 'computer_use', 'cronjob', 'discord', 'discord_admin', 'feishu_doc', 'feishu_drive', 'file', 'homeassistant', 'image_gen', 'kanban', 'search', 'session_search', 'skills', 'spotify', 'terminal', 'todo', 'tts', 'video', 'video_gen', 'vision', 'web', 'x_search', 'yuanbao'. Use 'web' for network access, 'terminal' for shell, 'browser' for web interaction."
+                },
+                "acp_command": {
+                  "type": "string",
+                  "description": "Per-task ACP command override (e.g. 'copilot'). Overrides the top-level acp_command for this task only. Do NOT set unless the user explicitly told you an ACP CLI is installed."
+                },
+                "acp_args": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Per-task ACP args override. Leave empty unless acp_command is set."
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "leaf",
+                    "orchestrator"
+                  ],
+                  "description": "Per-task role override. See top-level 'role' for semantics."
+                }
+              },
+              "required": [
+                "goal"
+              ]
+            },
+            "description": "Batch mode: tasks to run in parallel (up to 3 for this user, set via delegation.max_concurrent_children). Each gets its own subagent with isolated context and terminal session. When provided, top-level goal/context/toolsets are ignored."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "leaf",
+              "orchestrator"
+            ],
+            "description": "Role of the child agent. 'leaf' (default) = focused worker, cannot delegate further. 'orchestrator' = can use delegate_task to spawn its own workers. Nesting is OFF for this user (max_spawn_depth=1); 'orchestrator' is silently forced to 'leaf'. Raise delegation.max_spawn_depth in config.yaml to enable."
+          },
+          "background": {
+            "type": "boolean",
+            "default": false,
+            "description": "Run the subagent asynchronously in the BACKGROUND instead of blocking this turn. When true, delegate_task returns immediately with a delegation_id; you and the user keep working while the subagent runs, and its full result re-enters the conversation as a new message when it finishes (similar to terminal background=true + notify_on_complete). The re-injected message includes the original goal/context so you can act on it even after moving on. Single-task only — cannot be combined with the 'tasks' batch array. Use for long-running independent work the user shouldn't have to wait on (research, builds, multi-step investigations). Do NOT poll or wait after dispatching — just continue; the result will come to you."
+          },
+          "acp_command": {
+            "type": "string",
+            "description": "Override ACP command for child agents (e.g. 'copilot'). When set, children use ACP subprocess transport instead of inheriting the parent's transport. Requires an ACP-compatible CLI (currently GitHub Copilot CLI via 'copilot --acp --stdio'). See agent/copilot_acp_client.py for the implementation. IMPORTANT: Do NOT set this unless the user has explicitly told you a specific ACP-compatible CLI is installed and configured. Leave empty to use the parent's default transport (Hermes subagents)."
+          },
+          "acp_args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Arguments for the ACP command (default: ['--acp', '--stdio']). Only used when acp_command is set. Leave empty unless acp_command is explicitly provided."
+          }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "execute_code",
+      "description": "Run a Python script for in-memory computation and, when enabled, programmatic Hermes tool calls. Use this when you need 3+ tool calls with processing logic between them, need to filter/reduce large tool outputs before they enter your context, need conditional branching (if X then Y else Z), or need to loop (fetch N pages, process N files, retry on failure).\n\nUse normal tool calls instead when: single tool call with no processing, you need to see the full result and apply complex reasoning, or the task requires interactive user input.\n\nNo Hermes tools are available inside this execution.\n\nLimits: 5-minute timeout, 50KB stdout cap, max 50 tool calls per script. terminal() is foreground-only (no background or pty).\n\nThis is a pure-compute sandbox. Local host filesystem access, filesystem writes, outbound networking, and Hermes tool RPC are disabled. Do not use open(), pathlib, os file APIs, subprocesses for file access, socket, urllib, requests, or from hermes_tools import tool functions. Process data entirely in memory with the system Python standard library; project virtualenv packages are unavailable.\n\nPrint your final result to stdout. Use Python stdlib (json, re, math, csv, datetime, collections, etc.) for processing between tool calls.\n\nAlso available (no import needed — built into hermes_tools):\n  json_parse(text: str) — json.loads with strict=False; use for terminal() output with control chars\n  shell_quote(s: str) — shlex.quote(); use when interpolating dynamic strings into shell commands\n  retry(fn, max_attempts=3, delay=2) — retry with exponential backoff for transient failures",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Python code to execute in memory. Print your final result to stdout; no Hermes tools are available."
+          }
+        },
+        "required": [
+          "code"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "vision_analyze",
+      "description": "Load an image into the conversation so you can see it. Accepts a URL, local file path, or data URL. When your active model has native vision, the image is attached to your context directly and you read the pixels yourself on the next turn — call this any time the user references an image (filepath in their message, URL in tool output, screenshot from the browser, etc.). For non-vision models, falls back to an auxiliary vision model that returns a text description.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "image_url": {
+            "type": "string",
+            "description": "Image URL (http/https), local file path, or data: URL to load."
+          },
+          "question": {
+            "type": "string",
+            "description": "Your specific question or request about the image. Optional context the model uses on the next turn after seeing the image."
+          }
+        },
+        "required": [
+          "image_url",
+          "question"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_extract",
+      "description": "Extract content from web page URLs. Returns page content in markdown format. Also works with PDF URLs (arxiv papers, documents, etc.) — pass the PDF link directly and it converts to markdown text. Pages under 5000 chars return full markdown; larger pages are LLM-summarized and capped at ~5000 chars per page. Pages over 2M chars are refused. If a URL fails or times out, use the browser tool to access it instead.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "urls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of URLs to extract content from (max 5 URLs per call)",
+            "maxItems": 5
+          }
+        },
+        "required": [
+          "urls"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "web_search",
+      "description": "Search the web for information. Returns up to 10 results with titles, URLs, and descriptions.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The search query to look up on the web. You may include backend-supported operators such as site:example.com, filetype:pdf, intitle:word, -term, or \"exact phrase\"."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "The evaluator returns up to 10 results per query.",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    }
+  }
+]

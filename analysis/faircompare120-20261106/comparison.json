@@ -1,0 +1,84 @@
+{
+  "updated": 1793927871.6328928,
+  "runs": [
+    {
+      "model": "step39",
+      "run": "fair120_20261106_step39",
+      "finished": 128,
+      "scored": 128,
+      "correct": 4,
+      "wrong": 124,
+      "runtime_errors": 0,
+      "awaiting_judge": 0,
+      "accuracy": 0.03125,
+      "mean_duration_seconds": 2093.98859375,
+      "mean_executed_tool_calls": 104.5,
+      "max_executed_tool_calls": 120,
+      "tool_budget_reached": 99
+    },
+    {
+      "model": "step76",
+      "run": "fair120_20261106_step76",
+      "finished": 1,
+      "scored": 0,
+      "correct": 0,
+      "wrong": 0,
+      "runtime_errors": 1,
+      "awaiting_judge": 0,
+      "accuracy": null,
+      "mean_duration_seconds": null,
+      "mean_executed_tool_calls": 11,
+      "max_executed_tool_calls": 11,
+      "tool_budget_reached": 0
+    },
+    {
+      "model": "sft9b",
+      "run": "fair120_20261106_sft9b",
+      "finished": 0,
+      "scored": 0,
+      "correct": 0,
+      "wrong": 0,
+      "runtime_errors": 0,
+      "awaiting_judge": 0,
+      "accuracy": null,
+      "mean_duration_seconds": null,
+      "mean_executed_tool_calls": null,
+      "max_executed_tool_calls": null,
+      "tool_budget_reached": 0
+    }
+  ],
+  "paired": [
+    {
+      "models": [
+        "step39",
+        "step76"
+      ],
+      "both_scored": 0,
+      "both_correct": 0,
+      "first_only": 0,
+      "second_only": 0
+    },
+    {
+      "models": [
+        "step39",
+        "sft9b"
+      ],
+      "both_scored": 0,
+      "both_correct": 0,
+      "first_only": 0,
+      "second_only": 0
+    },
+    {
+      "models": [
+        "step76",
+        "sft9b"
+      ],
+      "both_scored": 0,
+      "both_correct": 0,
+      "first_only": 0,
+      "second_only": 0
+    }
+  ],
+  "denominator": 128,
+  "note": "One fresh run per model. Errors are separate; final accuracy uses all 128 questions."
+}

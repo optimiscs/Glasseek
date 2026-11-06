@@ -1,0 +1,119 @@
+{
+  "Quest objective": {
+    "population": 39861,
+    "sample": 500,
+    "content_tokens": 6300225,
+    "system_tokens": 413364,
+    "roles": {
+      "system": 413364,
+      "user": 868425,
+      "assistant": 1609129,
+      "tool_result": 3822671
+    },
+    "url_by_role": {
+      "tool_result": 969558,
+      "assistant": 164864,
+      "user": 135395
+    },
+    "category_counts": {
+      "other": 4229809,
+      "number": 657258,
+      "markup": 143341,
+      "url": 1269817
+    },
+    "category_percent": {
+      "url": 20.15510557162641,
+      "number": 10.43229408473507,
+      "markup": 2.2751727120856793,
+      "other": 67.13742763155284
+    },
+    "url_95pct_bootstrap_ci": [
+      19.66225799585835,
+      20.658608615914115
+    ],
+    "role_percent_excluding_system": {
+      "assistant": 25.540817986659206,
+      "tool_result": 60.67515049065708,
+      "user": 13.784031522683714,
+      "other": 0.0
+    }
+  },
+  "Quest open-ended": {
+    "population": 11903,
+    "sample": 500,
+    "content_tokens": 10625316,
+    "system_tokens": 529200,
+    "roles": {
+      "system": 529200,
+      "user": 2505012,
+      "assistant": 2309949,
+      "tool_result": 5810355
+    },
+    "url_by_role": {
+      "user": 427812,
+      "assistant": 254505,
+      "tool_result": 1304911
+    },
+    "category_counts": {
+      "other": 7542609,
+      "number": 879583,
+      "markup": 215896,
+      "url": 1987228
+    },
+    "category_percent": {
+      "url": 18.702766110673792,
+      "number": 8.278182032421435,
+      "markup": 2.03190192178755,
+      "other": 70.98714993511723
+    },
+    "url_95pct_bootstrap_ci": [
+      18.224622126327922,
+      19.1899215182859
+    ],
+    "role_percent_excluding_system": {
+      "assistant": 21.7400498959278,
+      "tool_result": 54.684067749138,
+      "user": 23.575882354934198,
+      "other": 0.0
+    }
+  },
+  "Glasseek SFT": {
+    "population": 5762,
+    "sample": 500,
+    "content_tokens": 15026844,
+    "system_tokens": 5005321,
+    "roles": {
+      "system": 5005321,
+      "user": 275999,
+      "assistant": 6312888,
+      "tool_result": 8437957
+    },
+    "url_by_role": {
+      "user": 6133,
+      "tool_result": 1350662,
+      "assistant": 257679
+    },
+    "category_counts": {
+      "other": 11504983,
+      "number": 1323947,
+      "url": 1614474,
+      "markup": 583440
+    },
+    "category_percent": {
+      "url": 10.743932658115037,
+      "number": 8.810545980247083,
+      "markup": 3.8826516066846772,
+      "other": 76.5628697549532
+    },
+    "url_95pct_bootstrap_ci": [
+      10.141972960639276,
+      11.416243198760737
+    ],
+    "role_percent_excluding_system": {
+      "assistant": 42.01073758401964,
+      "tool_result": 56.15255605235537,
+      "user": 1.83670636362499,
+      "other": 0.0
+    }
+  }
+}

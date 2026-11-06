@@ -1,0 +1,35 @@
+{
+  "QUEST-4B / GAIA 32": {
+    "cases": 32,
+    "cases_with_url": 30,
+    "occurrences": 725,
+    "occurrence_unseen": 279,
+    "unique_urls": 361,
+    "unique_unseen_at_least_once": 213,
+    "final_occurrences": 0,
+    "final_unseen": 0,
+    "excluded_compaction_steps": 0
+  },
+  "Glasseek SFT-9B / BrowseComp 128": {
+    "cases": 128,
+    "cases_with_url": 125,
+    "occurrences": 2075,
+    "occurrence_unseen": 1510,
+    "unique_urls": 1905,
+    "unique_unseen_at_least_once": 1487,
+    "final_occurrences": 6,
+    "final_unseen": 2,
+    "excluded_compaction_steps": 15
+  },
+  "Glasseek RL-9B / BrowseComp 128": {
+    "cases": 128,
+    "cases_with_url": 113,
+    "occurrences": 971,
+    "occurrence_unseen": 189,
+    "unique_urls": 838,
+    "unique_unseen_at_least_once": 178,
+    "final_occurrences": 4,
+    "final_unseen": 0,
+    "excluded_compaction_steps": 21
+  }
+}
