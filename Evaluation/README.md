@@ -95,3 +95,15 @@ registry to add or replace prompts without editing evaluator code. The Quest
 BrowseComp subset uses the `Explanation / Exact Answer / Confidence` template.
 These are model instructions rather than a guarantee of format compliance;
 existing completed answers are not rewritten.
+
+### Experiment service paths
+
+The retained local launchers derive the evaluation root from their location.
+Set `GLASSEEK_EVAL_ROOT`, `GLASSEEK_RUNTIME_DIR`, `QUEST_ROOT`, and
+`QUEST_VIEWER_SITE` when the default sibling Quest checkout or runtime location
+is different. `GLASSEEK_API_CONFIG` points to the private judge configuration;
+`HERMES_REMOTE_PURE_COMPUTE` and `GLASSEEK_TUNNEL_HOST` select SSH hosts.
+`VLLM_BIN` and `QUEST_PYTHON` override the respective executables. The existing
+run IDs, output directories, concurrency and checkpoint behavior are preserved.
+The 9B supervisor defaults to `services/run_rl9b_eval.sh`; set
+`GLASSEEK_RL9B_LAUNCHER` to use an existing deployment-specific launcher.

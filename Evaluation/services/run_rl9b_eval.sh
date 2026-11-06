@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
-R=/root/autodl-tmp/Glasseek/Evaluation/data/runtime
-E=/root/autodl-tmp/Glasseek/Evaluation
+E="${GLASSEEK_EVAL_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+R="${GLASSEEK_RUNTIME_DIR:-$E/data/runtime}"
+QUEST_ROOT="${QUEST_ROOT:-$(dirname "$(dirname "$E")")/Quest}"
+API_CONFIG="${GLASSEEK_API_CONFIG:-$QUEST_ROOT/workspace/strict-reproduction/.secrets/api_config.json}"
 RUN=glasseek_rl9b_quest128_32
 DATASET=quest_qwen27b_128
 export HERMES_HOME="$R/hermes" EVAL_PYTHON="$R/venv/bin/python" HERMES_BIN="$R/venv/bin/hermes" HERMES_API_KEY=local
 export SEARCH_SERVER_ENDPOINT=http://127.0.0.1:18083/search SEARCH_SERVER_API_KEY=rotation
-export HERMES_REMOTE_PURE_COMPUTE=Lab3090
+export HERMES_REMOTE_PURE_COMPUTE="${HERMES_REMOTE_PURE_COMPUTE:-Lab3090}"
 export GLASSEEK_SEARCH_TOP10=1
 export GLASSEEK_FETCH_DOH_SAFETY=1
 export GLASSEEK_ALLOW_KV_PREEMPTION=1
@@ -28,7 +30,7 @@ case "${1:-}" in
     ;;
   judge)
     export GLASSEEK_JUDGE_TERMINAL_ONLY=1
-    export JUDGE_API_KEY="$($EVAL_PYTHON -c 'import json,sys;print(json.load(open(sys.argv[1]))["common"]["JUDGE_OPENAI_API_KEY"])' /root/autodl-tmp/Quest/workspace/strict-reproduction/.secrets/api_config.json)"
+    export JUDGE_API_KEY="$($EVAL_PYTHON -c 'import json,sys;print(json.load(open(sys.argv[1]))["common"]["JUDGE_OPENAI_API_KEY"])' "$API_CONFIG")"
     exec scripts/judge.sh --save-name "$RUN" --dataset "$DATASET" --judge-provider openai \
       --judge-base-url https://api.deepseek.com/v1 --judge-model deepseek-flash \
       --prompt-version official --token-param max_tokens --no-json-schema --temperature 0

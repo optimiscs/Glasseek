@@ -8,7 +8,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-sys.path.insert(0, os.environ.get('QUEST_INFERENCE_DIR', '/root/autodl-tmp/Quest/inference'))
+sys.path.insert(0, os.environ.get('QUEST_INFERENCE_DIR', str(Path(os.environ.get('QUEST_ROOT', Path(__file__).resolve().parents[3] / 'Quest')) / 'inference')))
 from retrieval_experiment import select
 
 log = logging.getLogger('quest_retrieval')

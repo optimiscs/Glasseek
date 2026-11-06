@@ -1,0 +1,62 @@
+{
+  "QUEST-4B / GAIA 32": {
+    "cases": 32,
+    "generated": {
+      "tokens": 240130,
+      "url_tokens": 17193,
+      "percent": 7.1598717361429225
+    },
+    "tool": {
+      "tokens": 605222,
+      "url_tokens": 133082,
+      "percent": 21.98895611858128
+    },
+    "visible_trajectory": {
+      "tokens": 848078,
+      "url_tokens": 150275,
+      "percent": 17.7194786328616
+    },
+    "compaction_excluded_steps": 0,
+    "final_answer_cases": 32
+  },
+  "Glasseek SFT-9B / BrowseComp 128": {
+    "cases": 128,
+    "generated": {
+      "tokens": 5473416,
+      "url_tokens": 71624,
+      "percent": 1.3085795050111302
+    },
+    "tool": {
+      "tokens": 6380725,
+      "url_tokens": 2428243,
+      "percent": 38.05591057442532
+    },
+    "visible_trajectory": {
+      "tokens": 11872126,
+      "url_tokens": 2499867,
+      "percent": 21.056607721312933
+    },
+    "compaction_excluded_steps": 15,
+    "final_answer_cases": 29
+  },
+  "Glasseek RL-9B / BrowseComp 128": {
+    "cases": 128,
+    "generated": {
+      "tokens": 5443588,
+      "url_tokens": 27570,
+      "percent": 0.5064674255288975
+    },
+    "tool": {
+      "tokens": 7219709,
+      "url_tokens": 2036757,
+      "percent": 28.21106778680415
+    },
+    "visible_trajectory": {
+      "tokens": 12681282,
+      "url_tokens": 2064327,
+      "percent": 16.27853556130997
+    },
+    "compaction_excluded_steps": 21,
+    "final_answer_cases": 34
+  }
+}

@@ -42,14 +42,28 @@ def existing_session(workspace: Path, *, run_id: str, profile: str, hermes_home:
     if not db.exists():
         return None
     with sqlite3.connect(f'file:{db}?mode=ro', uri=True, timeout=5) as connection:
+        # Main sessions can have CLI descendants after context compression.
+        # Never resume a delegate (or a CLI descendant of a delegate) as the
+        # main task merely because it was created more recently.
+        main_sessions = connection.execute(
+            "WITH RECURSIVE main(id, started_at) AS ("
+            "SELECT id, started_at FROM sessions "
+            "WHERE source='cli' AND parent_session_id IS NULL AND started_at >= ? "
+            "UNION SELECT s.id, s.started_at FROM sessions s JOIN main p "
+            "ON s.parent_session_id=p.id WHERE s.source='cli') "
+            "SELECT id FROM main WHERE EXISTS "
+            "(SELECT 1 FROM messages m WHERE m.session_id=main.id) "
+            "ORDER BY started_at DESC, id DESC",
+            (float(checkpoint['started_at']) - 5,),
+        ).fetchall()
+        main_ids = [str(row[0]) for row in main_sessions]
         pinned = checkpoint.get('session_id')
         if pinned:
-            row = connection.execute('SELECT 1 FROM messages WHERE session_id=? LIMIT 1', (pinned,)).fetchone()
-            if not row:
-                raise ValueError('pinned resume session has no persisted messages')
+            if str(pinned) not in main_ids:
+                raise ValueError('pinned resume session is not a persisted main CLI session')
             return str(pinned)
-        row = connection.execute(
-            "SELECT s.id FROM sessions s WHERE s.started_at >= ? "
-            "AND EXISTS (SELECT 1 FROM messages m WHERE m.session_id=s.id) "
-            "ORDER BY s.started_at DESC LIMIT 1", (float(checkpoint['started_at']) - 5,)).fetchone()
-    return str(row[0]) if row else None
+        if main_ids:
+            return main_ids[0]
+        if connection.execute('SELECT 1 FROM messages LIMIT 1').fetchone():
+            raise ValueError('persisted messages exist but no eligible main CLI session was found')
+    return None

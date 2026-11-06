@@ -687,7 +687,7 @@ fi
 echo "API keys=${API_KEY_COUNT}; endpoint/key lanes=${LANE_COUNT}; workers per key=${WORKER_LIMIT_CSV}"
 echo "Rounds=${MAX_ROUNDS} retries=${MAX_RETRIES}"
 echo "Rerun failed: ${RERUN_FAILED}"
-echo "Timeout=${TIMEOUT_SECONDS}s context=${CONTEXT_LENGTH}"
+echo "Timeout=$([[ "${NO_TOTAL_TIMEOUT:-0}" == 1 ]] && echo none || echo "${TIMEOUT_SECONDS}s") context=${CONTEXT_LENGTH}"
 echo "Max tokens=${MAX_TOKENS:-<model default>} temperature=${TEMPERATURE:-<model default>}"
 echo "Context compression=${CONTEXT_COMPRESSION} threshold=${COMPRESSION_THRESHOLD}"
 echo "Reasoning effort=${REASONING_EFFORT:-<API default>}"
@@ -706,6 +706,7 @@ if [[ "${PREPARE_ONLY}" == "1" ]]; then
 fi
 
 optional_args=()
+[[ "${NO_TOTAL_TIMEOUT:-0}" == "1" ]] || optional_args+=(--timeout-seconds "${TIMEOUT_SECONDS}")
 if [[ -n "${RAMP_METRICS_URL}" || "${RAMP_REGISTRY}" == 1 ]]; then
   [[ -n "${RAMP_METRICS_URL}" ]] && optional_args+=(--ramp-metrics-url "${RAMP_METRICS_URL}")
   [[ "${RAMP_REGISTRY}" == 1 ]] && optional_args+=(--ramp-registry)
@@ -763,7 +764,6 @@ eval_cmd=("${EVAL_PYTHON}" -m browse_comp_eval.run
   --num-workers "${NUM_WORKERS}" \
   --max-rounds "${MAX_ROUNDS}" \
   --max-retries "${MAX_RETRIES}" \
-  --timeout-seconds "${TIMEOUT_SECONDS}" \
   --context-length "${CONTEXT_LENGTH}" \
   --tool-whitelist "${TOOL_WHITELIST}" \
   --skill-whitelist "${SKILL_WHITELIST}" \

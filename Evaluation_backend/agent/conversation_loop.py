@@ -579,6 +579,16 @@ def run_conversation(
         )
 
     while (api_call_count < agent.max_iterations and agent.iteration_budget.remaining > 0) or agent._budget_grace_call:
+        from agent.glasseek_tool_budget import exhausted as tool_budget_exhausted
+        if tool_budget_exhausted():
+            from agent.chat_completion_helpers import handle_max_iterations
+            final_response = handle_max_iterations(agent, messages, api_call_count,
+                summary_request="The tool-call budget is exhausted. You must answer the original question now using only the evidence already collected. Do not request or invoke any tools. Preserve the requested final-answer format.",
+                fallback_prefix="Tool-call budget exhausted", log_message="Tool-call budget exhausted; final answer only")
+            if not messages or messages[-1].get("role") != "assistant" or messages[-1].get("content") != final_response:
+                messages.append({"role": "assistant", "content": final_response})
+            _turn_exit_reason = "tool_call_budget_exhausted"
+            break
         # Reset per-turn checkpoint dedup so each iteration can take one snapshot
         agent._checkpoint_mgr.new_turn()
 

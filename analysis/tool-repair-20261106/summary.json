@@ -1,0 +1,76 @@
+{
+  "updated": "2026-11-06T09:28:34+0800",
+  "evaluation": "paused; existing results preserved; no model evaluation restarted",
+  "credentials": {
+    "quota_exhausted": 40,
+    "healthy": 31
+  },
+  "search_service": {
+    "SERPER_PROXY_CONCURRENCY": "128",
+    "SERPER_PROXY_QUEUE_LIMIT": "128",
+    "SERPER_PROXY_RPS": "0",
+    "SERPER_KEY_CONCURRENCY": "2",
+    "SERPER_KEY_RPS": "2.0",
+    "SERPER_PROXY_QUEUE_TIMEOUT": "5",
+    "SERPER_UPSTREAM_BUDGET": "45",
+    "SERPER_UPSTREAM_TIMEOUT": "20"
+  },
+  "search_tests": [
+    {
+      "concurrency": 1,
+      "requests": 24,
+      "success": 24,
+      "zero_results": 0,
+      "mean_seconds": 2.34415061523517,
+      "elapsed_seconds": 56.26214341446757
+    },
+    {
+      "concurrency": 4,
+      "requests": 24,
+      "success": 24,
+      "zero_results": 0,
+      "mean_seconds": 2.5887961982128522,
+      "elapsed_seconds": 16.00093436613679
+    },
+    {
+      "concurrency": 8,
+      "requests": 24,
+      "success": 20,
+      "zero_results": 0,
+      "mean_seconds": 4.1473478221644955,
+      "elapsed_seconds": 15.409136801958084
+    }
+  ],
+  "fetch_tests": [
+    {
+      "concurrency": 1,
+      "requests": 8,
+      "success": 8
+    },
+    {
+      "concurrency": 4,
+      "requests": 8,
+      "success": 8
+    }
+  ],
+  "dns_tests": {
+    "public_passed": 8,
+    "public_total": 8,
+    "private_blocked": 2,
+    "private_total": 2
+  },
+  "unit_tests_passed": 21,
+  "frontend_build": "passed; served asset verified",
+  "suggested_initial_eval_workers_per_gpu": 2,
+  "suggested_initial_eval_global_workers": 4,
+  "note": "Model evaluation stays paused. Per-key throttling replaces the previous global 4-concurrency and 2-RPS cap. Older 24-request tests describe the previous configuration.",
+  "search_pool_per_key_benchmark": "/root/autodl-tmp/Glasseek/analysis/tool-repair-20261106/pool-benchmark.json",
+  "search_pool_validation": {
+    "requests": 496,
+    "success": 496,
+    "elapsed_seconds": 43.93651074916124,
+    "successful_qps": 11.289016618359225,
+    "p95_latency": 19.711574476212263,
+    "errors": {}
+  }
+}

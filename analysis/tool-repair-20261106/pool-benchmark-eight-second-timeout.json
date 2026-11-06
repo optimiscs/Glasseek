@@ -1,0 +1,4580 @@
+{
+  "started": "2026-11-06T09:43:46+0800",
+  "stages": [
+    {
+      "pool_concurrency": 16,
+      "per_key_concurrency": 1,
+      "per_key_rps": 0.25,
+      "requests": 124,
+      "success": 123,
+      "elapsed_seconds": 28.826863761991262,
+      "successful_qps": 4.2668533426164,
+      "mean_latency": 2.802169844688427,
+      "p95_latency": 10.856465190649033,
+      "errors": {
+        "search_transport_error": 1
+      },
+      "health": {
+        "status": "ok",
+        "max_concurrency": 16,
+        "queue_limit": 128,
+        "requests_per_second": 0,
+        "pending": 0,
+        "total_keys": 71,
+        "per_key_concurrency": 1,
+        "per_key_rps": 0.25,
+        "quarantined_keys": {
+          "quota_exhausted": 40
+        },
+        "eligible_keys": 31,
+        "inflight_keys": 0,
+        "inflight_requests": 0,
+        "metrics": {
+          "connection_created": 19,
+          "upstream_http_200": 123,
+          "connection_reused": 114,
+          "transport_error": 10,
+          "transport_TimeoutError": 10
+        },
+        "per_key_metrics": {
+          "bd63167b307f": {
+            "requests": 5,
+            "peak_inflight": 1,
+            "http_200": 5
+          },
+          "61cedba8e78a": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "http_200": 3,
+            "transport_error": 1
+          },
+          "e99aa2751085": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "http_200": 4
+          },
+          "1da6e43e2c6e": {
+            "requests": 5,
+            "peak_inflight": 1,
+            "http_200": 5
+          },
+          "3332aa38527d": {
+            "requests": 5,
+            "peak_inflight": 1,
+            "http_200": 5
+          },
+          "0b7b3c891294": {
+            "requests": 5,
+            "peak_inflight": 1,
+            "http_200": 5
+          },
+          "e59a727f4a7d": {
+            "requests": 5,
+            "peak_inflight": 1,
+            "http_200": 4,
+            "transport_error": 1
+          },
+          "15a0a970a762": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "http_200": 3,
+            "transport_error": 1
+          },
+          "face5ece03ca": {
+            "requests": 5,
+            "peak_inflight": 1,
+            "http_200": 5
+          },
+          "d80b7f9feb79": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "http_200": 4
+          },
+          "307da7dcb5c1": {
+            "requests": 5,
+            "peak_inflight": 1,
+            "http_200": 5
+          },
+          "26c0516de03b": {
+            "requests": 5,
+            "peak_inflight": 1,
+            "http_200": 4,
+            "transport_error": 1
+          },
+          "8f95dc5895fd": {
+            "requests": 5,
+            "peak_inflight": 1,
+            "http_200": 5
+          },
+          "f03ca8ab4141": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "http_200": 3,
+            "transport_error": 1
+          },
+          "0aef61b02196": {
+            "requests": 5,
+            "peak_inflight": 1,
+            "http_200": 5
+          },
+          "9ce7b8bdbfcc": {
+            "requests": 5,
+            "peak_inflight": 1,
+            "http_200": 5
+          },
+          "0807b7b8bc1a": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "http_200": 3,
+            "transport_error": 1
+          },
+          "e3c668d20956": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "http_200": 4
+          },
+          "473f1f281712": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "http_200": 4
+          },
+          "1963d1b2d0dd": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "http_200": 4
+          },
+          "afd9629f3685": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "http_200": 3,
+            "transport_error": 1
+          },
+          "6d99f6d7b026": {
+            "requests": 3,
+            "peak_inflight": 1,
+            "http_200": 2,
+            "transport_error": 1
+          },
+          "0ced8a21a491": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "http_200": 4
+          },
+          "06597718ea00": {
+            "requests": 3,
+            "peak_inflight": 1,
+            "http_200": 2,
+            "transport_error": 1
+          },
+          "aa7d3c8dc58d": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "http_200": 4
+          },
+          "cbab1bb7e6b6": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "http_200": 4
+          },
+          "03984c34bfcb": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "http_200": 3,
+            "transport_error": 1
+          },
+          "e88bdc316821": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "http_200": 4
+          },
+          "521cf965264e": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "http_200": 4
+          },
+          "41c8831e1ab6": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "http_200": 4
+          },
+          "aad20145399b": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "http_200": 4
+          }
+        }
+      },
+      "rows": [
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.632842555642128,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.347054101526737,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.635594483464956,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9678042829036713,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.0028062500059605,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.6005809158086777,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.5411588586866856,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.536285161972046,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6374866105616093,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 6.220221806317568,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.11452379822731,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.379704285413027,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.926170650869608,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9544469863176346,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.887093484401703,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.7845711931586266,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.2394650280475616,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7930926382541656,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.3366988934576511,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.3817876614630222,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.3637479692697525,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.286255281418562,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.6671187840402126,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7824574708938599,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.454480651766062,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.4262539371848106,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.131412710994482,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.334348652511835,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7502395175397396,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.0797099508345127,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.0415752232074738,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 11.568249560892582,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.2535779401659966,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.415970653295517,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.850403394550085,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.449738319963217,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9684238769114017,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.2507417276501656,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6414744406938553,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 0.6562828570604324,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.524231694638729,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.0723176524043083,
+          "results": 10
+        },
+        {
+          "status": 503,
+          "ok": false,
+          "error_code": "search_transport_error",
+          "latency": 20.005383994430304,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.4595147706568241,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.1462405286729336,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.5024436488747597,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7069547288119793,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.395669374614954,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.5196664370596409,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.99092448502779,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.4770448245108128,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.2618458196520805,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 18.843317307531834,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.520639207214117,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.3303359895944595,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.8466578461229801,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.4970891252160072,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.5043517723679543,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.5725082643330097,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.0417247004806995,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7311521209776402,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.719156615436077,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.520139869302511,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.5541449002921581,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9376172609627247,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.2252793572843075,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.2361545152962208,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9907336123287678,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.695258129388094,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.074837639927864,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.1907773651182652,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.143933653831482,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.2582542933523655,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6981269977986813,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.8856107592582703,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6043832190334797,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.0239676870405674,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.681015182286501,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.4725628532469273,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.1218678057193756,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.5102320462465286,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.592556707561016,
+          "results": 6
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 11.763177495449781,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7595339193940163,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.2924397699534893,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.607594382017851,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.1790363155305386,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.482630968093872,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6070487052202225,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.9044064097106457,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7663785070180893,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.4515528306365013,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.308090891689062,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7223718129098415,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.8972796387970448,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.0500540249049664,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7338942289352417,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.2524197660386562,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6500045619904995,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 5.455690383911133,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.520547065883875,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.5375708304345608,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.097907118499279,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.062253225594759,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.600112859159708,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 12.065609272569418,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.4653219282627106,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6581201031804085,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.957757093012333,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.063340649008751,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7953992933034897,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.2297739684581757,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 11.257281549274921,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.0278064273297787,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.5691491328179836,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.3670349903404713,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.3934265300631523,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.627805408090353,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6265002489089966,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.650146756321192,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.304857850074768,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.077613987028599,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 10.856465190649033,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.3951773196458817,
+          "results": 9
+        }
+      ],
+      "config": {
+        "SERPER_PROXY_CONCURRENCY": "16",
+        "SERPER_PROXY_QUEUE_LIMIT": "128",
+        "SERPER_PROXY_RPS": "0",
+        "SERPER_KEY_CONCURRENCY": "1",
+        "SERPER_KEY_RPS": "0.25",
+        "SERPER_PROXY_QUEUE_TIMEOUT": "5"
+      }
+    },
+    {
+      "pool_concurrency": 32,
+      "per_key_concurrency": 1,
+      "per_key_rps": 0.5,
+      "requests": 186,
+      "success": 183,
+      "elapsed_seconds": 30.33307670801878,
+      "successful_qps": 6.033018073356949,
+      "mean_latency": 3.5684411319433362,
+      "p95_latency": 11.388778749853373,
+      "errors": {
+        "search_transport_error": 3
+      },
+      "health": {
+        "status": "ok",
+        "max_concurrency": 32,
+        "queue_limit": 128,
+        "requests_per_second": 0,
+        "pending": 0,
+        "total_keys": 71,
+        "per_key_concurrency": 1,
+        "per_key_rps": 0.5,
+        "quarantined_keys": {
+          "quota_exhausted": 40
+        },
+        "eligible_keys": 31,
+        "inflight_keys": 0,
+        "inflight_requests": 0,
+        "metrics": {
+          "connection_created": 39,
+          "upstream_http_200": 183,
+          "connection_reused": 168,
+          "transport_error": 24,
+          "transport_TimeoutError": 24
+        },
+        "per_key_metrics": {
+          "bd63167b307f": {
+            "requests": 6,
+            "peak_inflight": 1,
+            "http_200": 5,
+            "transport_error": 1
+          },
+          "61cedba8e78a": {
+            "requests": 7,
+            "peak_inflight": 1,
+            "http_200": 6,
+            "transport_error": 1
+          },
+          "e99aa2751085": {
+            "requests": 8,
+            "peak_inflight": 1,
+            "http_200": 7,
+            "transport_error": 1
+          },
+          "1da6e43e2c6e": {
+            "requests": 5,
+            "peak_inflight": 1,
+            "http_200": 4,
+            "transport_error": 1
+          },
+          "3332aa38527d": {
+            "requests": 9,
+            "peak_inflight": 1,
+            "http_200": 9
+          },
+          "0b7b3c891294": {
+            "requests": 8,
+            "peak_inflight": 1,
+            "http_200": 8
+          },
+          "e59a727f4a7d": {
+            "requests": 6,
+            "peak_inflight": 1,
+            "http_200": 6
+          },
+          "15a0a970a762": {
+            "requests": 8,
+            "peak_inflight": 1,
+            "http_200": 8
+          },
+          "face5ece03ca": {
+            "requests": 6,
+            "peak_inflight": 1,
+            "http_200": 5,
+            "transport_error": 1
+          },
+          "d80b7f9feb79": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "http_200": 2,
+            "transport_error": 2
+          },
+          "307da7dcb5c1": {
+            "requests": 7,
+            "peak_inflight": 1,
+            "http_200": 7
+          },
+          "26c0516de03b": {
+            "requests": 8,
+            "peak_inflight": 1,
+            "http_200": 7,
+            "transport_error": 1
+          },
+          "8f95dc5895fd": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "transport_error": 1,
+            "http_200": 3
+          },
+          "f03ca8ab4141": {
+            "requests": 8,
+            "peak_inflight": 1,
+            "http_200": 8
+          },
+          "0aef61b02196": {
+            "requests": 9,
+            "peak_inflight": 1,
+            "http_200": 9
+          },
+          "9ce7b8bdbfcc": {
+            "requests": 6,
+            "peak_inflight": 1,
+            "http_200": 5,
+            "transport_error": 1
+          },
+          "0807b7b8bc1a": {
+            "requests": 6,
+            "peak_inflight": 1,
+            "http_200": 6
+          },
+          "e3c668d20956": {
+            "requests": 9,
+            "peak_inflight": 1,
+            "http_200": 9
+          },
+          "473f1f281712": {
+            "requests": 7,
+            "peak_inflight": 1,
+            "http_200": 5,
+            "transport_error": 2
+          },
+          "1963d1b2d0dd": {
+            "requests": 6,
+            "peak_inflight": 1,
+            "http_200": 4,
+            "transport_error": 2
+          },
+          "afd9629f3685": {
+            "requests": 6,
+            "peak_inflight": 1,
+            "http_200": 5,
+            "transport_error": 1
+          },
+          "6d99f6d7b026": {
+            "requests": 6,
+            "peak_inflight": 1,
+            "http_200": 5,
+            "transport_error": 1
+          },
+          "0ced8a21a491": {
+            "requests": 9,
+            "peak_inflight": 1,
+            "http_200": 8,
+            "transport_error": 1
+          },
+          "06597718ea00": {
+            "requests": 6,
+            "peak_inflight": 1,
+            "http_200": 5,
+            "transport_error": 1
+          },
+          "aa7d3c8dc58d": {
+            "requests": 6,
+            "peak_inflight": 1,
+            "http_200": 5,
+            "transport_error": 1
+          },
+          "cbab1bb7e6b6": {
+            "requests": 7,
+            "peak_inflight": 1,
+            "http_200": 6,
+            "transport_error": 1
+          },
+          "03984c34bfcb": {
+            "requests": 7,
+            "peak_inflight": 1,
+            "http_200": 5,
+            "transport_error": 2
+          },
+          "e88bdc316821": {
+            "requests": 6,
+            "peak_inflight": 1,
+            "http_200": 6
+          },
+          "521cf965264e": {
+            "requests": 4,
+            "peak_inflight": 1,
+            "http_200": 2,
+            "transport_error": 2
+          },
+          "41c8831e1ab6": {
+            "requests": 5,
+            "peak_inflight": 1,
+            "http_200": 5
+          },
+          "aad20145399b": {
+            "requests": 8,
+            "peak_inflight": 1,
+            "http_200": 8
+          }
+        }
+      },
+      "rows": [
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7871566712856293,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7402032390236855,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.4860366322100163,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.8389189131557941,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.2617760933935642,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.6169603429734707,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7784473486244678,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.0087047144770622,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.2691525891423225,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.710699561983347,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.758941061794758,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.554533712565899,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 11.388778749853373,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.8429433479905128,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.44211782515049,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9566754065454006,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.777882546186447,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.335882931947708,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.145647168159485,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.68774488940835,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.6640836372971535,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9607928358018398,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.152130976319313,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.1766086146235466,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.348727699369192,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.237631857395172,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.123699054121971,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.0553047880530357,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.760916519910097,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 7.186516005545855,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.9591504484415054,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.617828816175461,
+          "results": 10
+        },
+        {
+          "status": 503,
+          "ok": false,
+          "error_code": "search_transport_error",
+          "latency": 19.69198728725314,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7996807470917702,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6599752679467201,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.3331511355936527,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.313549015671015,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.4667938984930515,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.767104659229517,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 6.541922494769096,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.6156901717185974,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6320784911513329,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.3949888721108437,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9994689896702766,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.541930615901947,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.8627247028052807,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.8856743089854717,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.415141623467207,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7565771155059338,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.3706780150532722,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.38054858148098,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6252842508256435,
+          "results": 10
+        },
+        {
+          "status": 503,
+          "ok": false,
+          "error_code": "search_transport_error",
+          "latency": 20.00658531114459,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.4023430980741978,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.79415962100029,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.3073743879795074,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.2461642995476723,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.5391701459884644,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.2094887159764767,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 0.6380614377558231,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.6653910614550114,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.2154563777148724,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.2953091375529766,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.726020410656929,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.583983860909939,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 10.127605576068163,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6826426982879639,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.740452006459236,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 5.685844302177429,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.4485538974404335,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6560373827815056,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9404262602329254,
+          "results": 10
+        },
+        {
+          "status": 503,
+          "ok": false,
+          "error_code": "search_transport_error",
+          "latency": 20.007838375866413,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.4282978512346745,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 11.99844041094184,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 7.474722970277071,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 0.9116408079862595,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.5341352932155132,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.073042418807745,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 0.8798910342156887,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.3877229765057564,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.3713181614875793,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 19.11324479803443,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.0142853669822216,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 10.615692686289549,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.0903477407991886,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.383822649717331,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.513218652456999,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.3599554039537907,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.3070707507431507,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.5279084034264088,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9914438277482986,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.7337238900363445,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6520475819706917,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.0377027355134487,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.519243072718382,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9574925862252712,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7044741660356522,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9844534434378147,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.1422853991389275,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.5496103763580322,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.680283360183239,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.5784256421029568,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.130419783294201,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 6.610381200909615,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.0642476864159107,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.765274789184332,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.244776666164398,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.500865239650011,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.272305864840746,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.089889742434025,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.5371274277567863,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.3942050710320473,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6650701239705086,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.487308446317911,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.311628330498934,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.247959766536951,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.047729555517435,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9598939791321754,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.8525614961981773,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.4796012230217457,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 6.012731529772282,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.7136968299746513,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.8399618901312351,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9033952504396439,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.02580788359046,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.8077388368546963,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.344854298979044,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.2823161147534847,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 5.894646540284157,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.3859993182122707,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.269719358533621,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 17.523981671780348,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.621084075421095,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.8752172254025936,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.0545193254947662,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.0863123685121536,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.0515191331505775,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.111708089709282,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.4865456223487854,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.161667063832283,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.3249756321310997,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 18.82329649478197,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.155221115797758,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 9.746538184583187,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 9.461722780019045,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.6208462826907635,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.845265880227089,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.985201496630907,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.1024902164936066,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6992790065705776,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 9.55323002487421,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 11.657463427633047,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.205978646874428,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.8097638599574566,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.051619254052639,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.2529248893260956,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.3921899907290936,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.0782342478632927,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.9174879565835,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.0811707377433777,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.279603745788336,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.6722406558692455,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.9899801053106785,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 5.602312974631786,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 12.229637157171965,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.3133129477500916,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.73498972132802,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.249297719448805,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.0801396258175373,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.1485443115234375,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 9.795905470848083,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 7.183715745806694,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.110546249896288,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 5.587646245956421,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.187883198261261,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.3160850666463375,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.5484423004090786,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.8356921263039112,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7198505587875843,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.157528080046177,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.4342046976089478,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.710896622389555,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.993631210178137,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.7609690576791763,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 6.0850279331207275,
+          "results": 9
+        }
+      ],
+      "config": {
+        "SERPER_PROXY_CONCURRENCY": "32",
+        "SERPER_PROXY_QUEUE_LIMIT": "128",
+        "SERPER_PROXY_RPS": "0",
+        "SERPER_KEY_CONCURRENCY": "1",
+        "SERPER_KEY_RPS": "0.5",
+        "SERPER_PROXY_QUEUE_TIMEOUT": "5"
+      }
+    },
+    {
+      "pool_concurrency": 64,
+      "per_key_concurrency": 1,
+      "per_key_rps": 1.0,
+      "requests": 248,
+      "success": 235,
+      "elapsed_seconds": 34.00281286984682,
+      "successful_qps": 6.911192932758643,
+      "mean_latency": 5.872163239641175,
+      "p95_latency": 19.184028953313828,
+      "errors": {
+        "search_transport_error": 10,
+        "search_rate_wait_timeout": 3
+      },
+      "health": {
+        "status": "ok",
+        "max_concurrency": 64,
+        "queue_limit": 128,
+        "requests_per_second": 0,
+        "pending": 0,
+        "total_keys": 71,
+        "per_key_concurrency": 1,
+        "per_key_rps": 1.0,
+        "quarantined_keys": {
+          "quota_exhausted": 40
+        },
+        "eligible_keys": 31,
+        "inflight_keys": 0,
+        "inflight_requests": 0,
+        "metrics": {
+          "connection_created": 49,
+          "upstream_http_200": 235,
+          "connection_reused": 224,
+          "transport_error": 38,
+          "transport_TimeoutError": 38
+        },
+        "per_key_metrics": {
+          "bd63167b307f": {
+            "requests": 8,
+            "peak_inflight": 1,
+            "http_200": 6,
+            "transport_error": 2
+          },
+          "61cedba8e78a": {
+            "requests": 9,
+            "peak_inflight": 1,
+            "http_200": 8,
+            "transport_error": 1
+          },
+          "e99aa2751085": {
+            "requests": 8,
+            "peak_inflight": 1,
+            "http_200": 7,
+            "transport_error": 1
+          },
+          "1da6e43e2c6e": {
+            "requests": 8,
+            "peak_inflight": 1,
+            "http_200": 7,
+            "transport_error": 1
+          },
+          "3332aa38527d": {
+            "requests": 11,
+            "peak_inflight": 1,
+            "http_200": 10,
+            "transport_error": 1
+          },
+          "0b7b3c891294": {
+            "requests": 9,
+            "peak_inflight": 1,
+            "http_200": 7,
+            "transport_error": 2
+          },
+          "e59a727f4a7d": {
+            "requests": 5,
+            "peak_inflight": 1,
+            "http_200": 3,
+            "transport_error": 2
+          },
+          "15a0a970a762": {
+            "requests": 12,
+            "peak_inflight": 1,
+            "http_200": 10,
+            "transport_error": 1
+          },
+          "face5ece03ca": {
+            "requests": 7,
+            "peak_inflight": 1,
+            "http_200": 5,
+            "transport_error": 2
+          },
+          "d80b7f9feb79": {
+            "requests": 11,
+            "peak_inflight": 1,
+            "http_200": 10,
+            "transport_error": 1
+          },
+          "307da7dcb5c1": {
+            "requests": 9,
+            "peak_inflight": 1,
+            "http_200": 9
+          },
+          "26c0516de03b": {
+            "requests": 8,
+            "peak_inflight": 1,
+            "http_200": 7,
+            "transport_error": 1
+          },
+          "8f95dc5895fd": {
+            "requests": 11,
+            "peak_inflight": 1,
+            "http_200": 10,
+            "transport_error": 1
+          },
+          "f03ca8ab4141": {
+            "requests": 10,
+            "peak_inflight": 1,
+            "http_200": 9,
+            "transport_error": 1
+          },
+          "0aef61b02196": {
+            "requests": 6,
+            "peak_inflight": 1,
+            "http_200": 4,
+            "transport_error": 2
+          },
+          "9ce7b8bdbfcc": {
+            "requests": 11,
+            "peak_inflight": 1,
+            "http_200": 11
+          },
+          "0807b7b8bc1a": {
+            "requests": 9,
+            "peak_inflight": 1,
+            "http_200": 8,
+            "transport_error": 1
+          },
+          "e3c668d20956": {
+            "requests": 9,
+            "peak_inflight": 1,
+            "http_200": 7,
+            "transport_error": 2
+          },
+          "473f1f281712": {
+            "requests": 8,
+            "peak_inflight": 1,
+            "http_200": 6,
+            "transport_error": 2
+          },
+          "1963d1b2d0dd": {
+            "requests": 10,
+            "peak_inflight": 1,
+            "http_200": 9,
+            "transport_error": 1
+          },
+          "afd9629f3685": {
+            "requests": 8,
+            "peak_inflight": 1,
+            "http_200": 6,
+            "transport_error": 2
+          },
+          "6d99f6d7b026": {
+            "requests": 8,
+            "peak_inflight": 1,
+            "http_200": 7,
+            "transport_error": 1
+          },
+          "0ced8a21a491": {
+            "requests": 5,
+            "peak_inflight": 1,
+            "transport_error": 2,
+            "http_200": 3
+          },
+          "06597718ea00": {
+            "requests": 11,
+            "peak_inflight": 1,
+            "http_200": 11
+          },
+          "aa7d3c8dc58d": {
+            "requests": 11,
+            "peak_inflight": 1,
+            "http_200": 11
+          },
+          "cbab1bb7e6b6": {
+            "requests": 9,
+            "peak_inflight": 1,
+            "http_200": 7,
+            "transport_error": 1
+          },
+          "03984c34bfcb": {
+            "requests": 9,
+            "peak_inflight": 1,
+            "http_200": 7,
+            "transport_error": 1
+          },
+          "e88bdc316821": {
+            "requests": 10,
+            "peak_inflight": 1,
+            "http_200": 9,
+            "transport_error": 1
+          },
+          "521cf965264e": {
+            "requests": 11,
+            "peak_inflight": 1,
+            "http_200": 10,
+            "transport_error": 1
+          },
+          "41c8831e1ab6": {
+            "requests": 7,
+            "peak_inflight": 1,
+            "http_200": 5,
+            "transport_error": 2
+          },
+          "aad20145399b": {
+            "requests": 8,
+            "peak_inflight": 1,
+            "http_200": 6,
+            "transport_error": 2
+          }
+        }
+      },
+      "rows": [
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9665241092443466,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.8103755712509155,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.7816555351018906,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.266053143888712,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7635575979948044,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.4019775800406933,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.4723562486469746,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.6934226751327515,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.4816743060946465,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.5701734125614166,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.1161599941551685,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.0814551673829556,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.631816655397415,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.1537510603666306,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.853392791002989,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.869230404496193,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6911760792136192,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6636295579373837,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.8022643886506557,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.6327291317284107,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.8003858290612698,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.759783200919628,
+          "results": 9
+        },
+        {
+          "status": 503,
+          "ok": false,
+          "error_code": "search_transport_error",
+          "latency": 20.016624726355076,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.728745762258768,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.9960410110652447,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.4845220148563385,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.791637010872364,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.8922176882624626,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.8738390132784843,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.3767632767558098,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.2128105722367764,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.837587006390095,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.299228236079216,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 10.017307862639427,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.846877448260784,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 6.1831069849431515,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 11.09127488359809,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 15.73933470994234,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.5236174762248993,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 6.538686648011208,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.2823519967496395,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.744436856359243,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 6.276257839053869,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.4708346351981163,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 6.2874303832650185,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.9053419269621372,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 5.221509091556072,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 18.453498981893063,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 11.7824970446527,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 17.801343973726034,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 6.511000122874975,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 5.836227852851152,
+          "results": 10
+        },
+        {
+          "status": 503,
+          "ok": false,
+          "error_code": "search_rate_wait_timeout",
+          "latency": 20.092313710600138,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 5.039818238466978,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 9.067751534283161,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 6.995501339435577,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.299660209566355,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.366028003394604,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.809947658330202,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 5.914608005434275,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.5157301612198353,
+          "results": 9
+        },
+        {
+          "status": 503,
+          "ok": false,
+          "error_code": "search_rate_wait_timeout",
+          "latency": 19.550332732498646,
+          "results": 0
+        },
+        {
+          "status": 503,
+          "ok": false,
+          "error_code": "search_transport_error",
+          "latency": 20.1249260045588,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 11.534672960639,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7125210836529732,
+          "results": 10
+        },
+        {
+          "status": 503,
+          "ok": false,
+          "error_code": "search_rate_wait_timeout",
+          "latency": 19.184028953313828,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 6.627027541399002,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.542026523500681,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9902614429593086,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 7.09368821233511,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.864330641925335,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6032141707837582,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7292549312114716,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.2517819553613663,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.4881498031318188,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 5.246614288538694,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.9169992841780186,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.914626743644476,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 15.195902358740568,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 5.189456604421139,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.768500030040741,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 16.57195347175002,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.496523030102253,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.093075606971979,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 13.444564145058393,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 17.898072972893715,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 7.3426252491772175,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 11.608810242265463,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.381608624011278,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.2050253599882126,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.038401659578085,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6138866357505322,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.7784931734204292,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.666483085602522,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.699468735605478,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.51987636461854,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 6.4385871179401875,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 8.672970231622458,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.191111523658037,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 0.9802243895828724,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.169515319168568,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.7759756110608578,
+          "results": 10
+        },
+        {
+          "status": 503,
+          "ok": false,
+          "error_code": "search_transport_error",
+          "latency": 20.0053327716887,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.87645673006773,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 11.427538730204105,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.891406584531069,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9523187391459942,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.320144459605217,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.263554882258177,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.87986546382308,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.75985786318779,
+          "results": 10
+        },
+        {
+          "status": 503,
+          "ok": false,
+          "error_code": "search_transport_error",
+          "latency": 20.011071298271418,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 5.65217325463891,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 6.394438739866018,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 19.496308594942093,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.8992358297109604,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9983320608735085,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.3457776494324207,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 18.244090761989355,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 0.9503986984491348,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.647767473012209,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.1031579226255417,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.445909548550844,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 17.670727390795946,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.0809816010296345,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.8611464016139507,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.5994382947683334,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 18.704090792685747,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9795699380338192,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 11.841537464410067,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7483948767185211,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 10.590287145227194,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.152093388140202,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.4330010935664177,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 14.548299867659807,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.5827899798750877,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.0183087661862373,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.0233363285660744,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 5.438374560326338,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 13.105915274471045,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.8049837574362755,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.8817798122763634,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.876819498836994,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 5.295349981635809,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.370720259845257,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9128254503011703,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.095436505973339,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 13.593675337731838,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.442137062549591,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.025841102004051,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.9117388762533665,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 12.705648884177208,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.44649563729763,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.8015753030776978,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.975490029901266,
+          "results": 10
+        },
+        {
+          "status": 503,
+          "ok": false,
+          "error_code": "search_transport_error",
+          "latency": 20.010566748678684,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 12.483547069132328,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.61466284096241,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.209201607853174,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 8.43011037632823,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.614264614880085,
+          "results": 10
+        },
+        {
+          "status": 503,
+          "ok": false,
+          "error_code": "search_transport_error",
+          "latency": 19.80799989402294,
+          "results": 0
+        },
+        {
+          "status": 503,
+          "ok": false,
+          "error_code": "search_transport_error",
+          "latency": 19.89112776517868,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 5.534757286310196,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.341248355805874,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 13.604435063898563,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 10.686029110103846,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.1450708024203777,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.3165254294872284,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 8.966705039143562,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 7.226583171635866,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.424940340220928,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 10.53149888664484,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.813079077750444,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 12.90115187689662,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.3237137012183666,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 12.272993702441454,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 12.670498505234718,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 6.211604855954647,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 6.377782128751278,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.772328820079565,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.6090037673711777,
+          "results": 10
+        },
+        {
+          "status": 503,
+          "ok": false,
+          "error_code": "search_transport_error",
+          "latency": 18.247360203415155,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.2909027896821499,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.236658725887537,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.5590384006500244,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 9.655063521116972,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.068835262209177,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.3594880290329456,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.0302416048943996,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6813055276870728,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.970299109816551,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 18.963089663535357,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.5796153359115124,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 15.005367144942284,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.2415844202041626,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.34018748998642,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.018946260213852,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.0021939612925053,
+          "results": 8
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 0.5828300341963768,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.7607008703052998,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.019632313400507,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.280389025807381,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 6.1268641240894794,
+          "results": 9
+        },
+        {
+          "status": 503,
+          "ok": false,
+          "error_code": "search_transport_error",
+          "latency": 20.009278789162636,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.0928882770240307,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.892696786671877,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 5.955157026648521,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 8.338413584977388,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 6.749984726309776,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 7.964189853519201,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 15.372353974729776,
+          "results": 10
+        },
+        {
+          "status": 503,
+          "ok": false,
+          "error_code": "search_transport_error",
+          "latency": 20.009163852781057,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6964678019285202,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 9.874625138938427,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.615400705486536,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.1165620498359203,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.017896607518196,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.8085056394338608,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.2510068342089653,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 7.125014841556549,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.0301741622388363,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.798345699906349,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.2900926135480404,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9941199980676174,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 13.721516706049442,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 7.029507324099541,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.595608077943325,
+          "results": 7
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 5.1168163157999516,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.377307076007128,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.8026603385806084,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 3.714901316910982,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.8562253341078758,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 5.97865628823638,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6517899855971336,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.5646123550832272,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.9902573935687542,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 5.221707683056593,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.871452871710062,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.5357355661690235,
+          "results": 0
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 4.785275559872389,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 11.144216313958168,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 12.216132134199142,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.3642326779663563,
+          "results": 9
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.729573406279087,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 12.255465988069773,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 1.6567935198545456,
+          "results": 10
+        },
+        {
+          "status": 200,
+          "ok": true,
+          "error_code": null,
+          "latency": 2.7143017016351223,
+          "results": 9
+        }
+      ],
+      "config": {
+        "SERPER_PROXY_CONCURRENCY": "64",
+        "SERPER_PROXY_QUEUE_LIMIT": "128",
+        "SERPER_PROXY_RPS": "0",
+        "SERPER_KEY_CONCURRENCY": "1",
+        "SERPER_KEY_RPS": "1.0",
+        "SERPER_PROXY_QUEUE_TIMEOUT": "5"
+      }
+    }
+  ]
+}

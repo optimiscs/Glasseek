@@ -28,9 +28,12 @@ class ResumeCheckpointTest(unittest.TestCase):
             db = root / 'profiles' / 'profile' / 'state.db'
             db.parent.mkdir(parents=True)
             with sqlite3.connect(db) as connection:
-                connection.executescript('CREATE TABLE sessions (id TEXT, started_at REAL); CREATE TABLE messages (session_id TEXT);')
-                connection.executemany('INSERT INTO sessions VALUES (?,?)', [('old', 10), ('new', 20), ('empty', 30)])
-                connection.executemany('INSERT INTO messages VALUES (?)', [('old',), ('new',)])
+                connection.executescript('CREATE TABLE sessions (id TEXT, started_at REAL, source TEXT, parent_session_id TEXT); CREATE TABLE messages (session_id TEXT);')
+                connection.executemany('INSERT INTO sessions VALUES (?,?,?,?)', [
+                    ('old', 10, 'cli', None), ('new', 20, 'cli', 'old'),
+                    ('empty', 30, 'cli', 'new'), ('delegate', 40, 'subagent', 'new'),
+                    ('delegate_continuation', 50, 'cli', 'delegate')])
+                connection.executemany('INSERT INTO messages VALUES (?)', [(s,) for s in ['old', 'new', 'delegate', 'delegate_continuation']])
             write_checkpoint(workspace, run_id='question__r1', profile='profile', started_at=1)
             self.assertEqual(existing_session(workspace, run_id='question__r1', profile='profile', hermes_home=root), 'new')
             marker = workspace / '.glasseek_resume.json'
@@ -38,6 +41,10 @@ class ResumeCheckpointTest(unittest.TestCase):
             checkpoint['session_id'] = 'old'
             marker.write_text(json.dumps(checkpoint))
             self.assertEqual(existing_session(workspace, run_id='question__r1', profile='profile', hermes_home=root), 'old')
+            checkpoint['session_id'] = 'delegate'
+            marker.write_text(json.dumps(checkpoint))
+            with self.assertRaisesRegex(ValueError, 'main CLI'):
+                existing_session(workspace, run_id='question__r1', profile='profile', hermes_home=root)
             with self.assertRaises(ValueError):
                 existing_session(workspace, run_id='different', profile='profile', hermes_home=root)
 

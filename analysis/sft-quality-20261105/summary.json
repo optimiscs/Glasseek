@@ -1,0 +1,138 @@
+{
+  "source_sha256": "66186e7f3349cc58646455d0de60c112a90ecc400093ccaeceb311581d8dbf80",
+  "rows": 5762,
+  "unique_full_questions": 4448,
+  "unique_extracted_question_bodies": 4362,
+  "raw_content_tokens": {
+    "totals": {
+      "system": 56402661,
+      "user": 98446875,
+      "assistant": 75275065,
+      "think": 55684390,
+      "final_visible": 4366885
+    },
+    "groups": {
+      "other": {
+        "system": 18999821,
+        "user": 19874151,
+        "assistant": 10835360,
+        "think": 852319,
+        "final_visible": 1072700
+      },
+      "browse_comparison": {
+        "system": 18506609,
+        "user": 34218453,
+        "assistant": 8604872,
+        "think": 4971761,
+        "final_visible": 962907
+      },
+      "multi_constraint": {
+        "system": 18896231,
+        "user": 44354271,
+        "assistant": 55834833,
+        "think": 49860310,
+        "final_visible": 2331278
+      }
+    },
+    "method": "Qwen3.5-9B raw content encoding; no chat wrappers. think and final_visible are subsets of assistant."
+  },
+  "current_64k_train_raw_content_tokens": {
+    "system": 48405637,
+    "user": 72488922,
+    "assistant": 40619179,
+    "think": 24636095,
+    "final_visible": 3360083
+  },
+  "current_64k_train_think_fraction": 0.6065138588842478,
+  "cross_split_question_groups": [
+    [
+      3020,
+      3021,
+      3022
+    ],
+    [
+      3142,
+      3147
+    ],
+    [
+      3189,
+      3190,
+      3191
+    ],
+    [
+      3211,
+      3212,
+      3214
+    ],
+    [
+      3249,
+      3251
+    ],
+    [
+      3333,
+      3335
+    ],
+    [
+      3365,
+      3366,
+      3367
+    ],
+    [
+      3384,
+      3385
+    ]
+  ],
+  "affected_val64_rows": 11,
+  "val64_rows": 241,
+  "delegation_limit_error_rows": 435,
+  "dsml_marker_rows": 22,
+  "manually_confirmed_distinct_answer_pairs": [
+    [
+      1253,
+      1588
+    ],
+    [
+      1339,
+      1628
+    ],
+    [
+      1354,
+      1468
+    ],
+    [
+      1380,
+      1475
+    ],
+    [
+      1434,
+      1664
+    ]
+  ],
+  "retained_64k_constraint_mismatch_examples": [
+    3649,
+    3699
+  ],
+  "lexical_disagreement_candidates_not_semantic_error_count": 238,
+  "fixed_seed_qualitative_sample_lines": [
+    264,
+    310,
+    2126,
+    202,
+    841,
+    2188,
+    2655,
+    1511,
+    2091,
+    3136,
+    1772,
+    1512,
+    5257,
+    4669,
+    4144,
+    4085,
+    3498,
+    4647
+  ],
+  "validation": "All row ids aligned; source SHA256 matches both manifests; split counts and tool totals reconcile.",
+  "scope": "Offline full structural/token scan plus targeted qualitative review. No independent answer labels or external fact verification. Do not interpret heuristic flags as error rates."
+}

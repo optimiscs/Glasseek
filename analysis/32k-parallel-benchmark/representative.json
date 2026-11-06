@@ -1,0 +1,386 @@
+[
+  {
+    "source_line": 2425,
+    "tokens": 5753,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 1791,
+    "tokens": 11520,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 2090,
+    "tokens": 11871,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 1503,
+    "tokens": 12213,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 1302,
+    "tokens": 12935,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 2387,
+    "tokens": 13406,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 5257,
+    "tokens": 14190,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 2276,
+    "tokens": 14840,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 1228,
+    "tokens": 15495,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 2095,
+    "tokens": 16209,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 1770,
+    "tokens": 16823,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 1411,
+    "tokens": 17443,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 5539,
+    "tokens": 17967,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 5385,
+    "tokens": 18584,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 1723,
+    "tokens": 19284,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 5636,
+    "tokens": 19782,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 5470,
+    "tokens": 20377,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 2383,
+    "tokens": 20859,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 2318,
+    "tokens": 21450,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 2530,
+    "tokens": 21837,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 3046,
+    "tokens": 22245,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 5076,
+    "tokens": 22653,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 636,
+    "tokens": 23066,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 1868,
+    "tokens": 23553,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 2265,
+    "tokens": 23892,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 1700,
+    "tokens": 24118,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 2773,
+    "tokens": 24390,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 1043,
+    "tokens": 24706,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 3030,
+    "tokens": 24939,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 3580,
+    "tokens": 25223,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 497,
+    "tokens": 25515,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 866,
+    "tokens": 25810,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 4870,
+    "tokens": 26019,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 537,
+    "tokens": 26253,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 3310,
+    "tokens": 26483,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 212,
+    "tokens": 26642,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 2653,
+    "tokens": 26847,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 301,
+    "tokens": 27110,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 712,
+    "tokens": 27287,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 5692,
+    "tokens": 27487,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 509,
+    "tokens": 27757,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 2775,
+    "tokens": 27922,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 3231,
+    "tokens": 28138,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 4677,
+    "tokens": 28402,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 3251,
+    "tokens": 28641,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 543,
+    "tokens": 28925,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 720,
+    "tokens": 29096,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 5740,
+    "tokens": 29329,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 1005,
+    "tokens": 29490,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 3114,
+    "tokens": 29722,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 719,
+    "tokens": 29917,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 312,
+    "tokens": 30076,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 322,
+    "tokens": 30301,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 5020,
+    "tokens": 30516,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 2961,
+    "tokens": 30713,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 4322,
+    "tokens": 30929,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 2901,
+    "tokens": 31141,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 494,
+    "tokens": 31373,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 2567,
+    "tokens": 31624,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 445,
+    "tokens": 31877,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 2626,
+    "tokens": 32120,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 3406,
+    "tokens": 32333,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 156,
+    "tokens": 32517,
+    "exact": true,
+    "split": "train"
+  },
+  {
+    "source_line": 3489,
+    "tokens": 32767,
+    "exact": true,
+    "split": "train"
+  }
+]

@@ -1,0 +1,61 @@
+defaults:
+  - sft_trainer_engine
+  - _self_
+
+hydra:
+  searchpath:
+    - pkg://verl.trainer.config
+
+model:
+  path: ${oc.env:MODEL_PATH,Qwen/Qwen3.5-9B}
+  enable_gradient_checkpointing: true
+  lora_rank: 16
+  lora_alpha: 32
+  target_modules: all-linear
+  use_fused_kernels: true
+  fused_kernel_options:
+    impl_backend: torch
+  use_remove_padding: true
+
+data:
+  train_files: ${oc.env:SFT_TRAIN_FILE,data/glasseek/sft/train.parquet}
+  val_files: ${oc.env:SFT_VAL_FILE,data/glasseek/sft/val.parquet}
+  train_batch_size: 64
+  micro_batch_size_per_gpu: 1
+  max_length: 43008
+  max_token_len_per_gpu: 43008
+  use_dynamic_bsz: true
+  pad_mode: no_padding
+  truncation: error
+  messages_key: messages
+  custom_cls:
+    path: pkg://glasseek_training.sft_dataset
+    name: GlasseekSFTDataset
+  num_workers: 4
+  # Qwen thinking templates may remove older reasoning when rendering a whole
+  # conversation. Train on per-turn rendering so the original reasoning survives.
+  ignore_input_ids_mismatch: true
+
+optim:
+  lr: 2.0e-5
+  min_lr_ratio: 0.1
+  lr_scheduler_type: cosine
+  lr_warmup_steps_ratio: 0.03
+  weight_decay: 0.01
+
+engine:
+  strategy: fsdp2
+  model_dtype: bf16
+  ulysses_sequence_parallel_size: 1
+
+trainer:
+  total_epochs: 3
+  total_training_steps: null
+  project_name: glasseek
+  experiment_name: sft
+  logger: [console]
+  nnodes: 1
+  n_gpus_per_node: 4
+  save_freq: 10
+  test_freq: -1
+  resume_mode: auto

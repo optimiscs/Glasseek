@@ -8,9 +8,39 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "Evaluation"))
 import quest_viewer_adapter as adapter
+import quest_viewer_checkpoint_adapter as checkpoint_adapter
 
 
 class QuestViewerAdapterTests(unittest.TestCase):
+    def test_final_answer_timing_matches_content_not_displayed_reasoning(self):
+        for module in (adapter, checkpoint_adapter):
+            with self.subTest(adapter=module.__name__), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory); db = root / 'state.db'; log = root / 'agent.log'
+                origin = datetime(2026, 1, 1, 12).timestamp()
+                with sqlite3.connect(db) as conn:
+                    conn.execute('CREATE TABLE messages (id INTEGER PRIMARY KEY, session_id TEXT, role TEXT, timestamp REAL, tool_call_id TEXT, tool_name TEXT, content TEXT, tool_calls TEXT, inherited_from_previous_session INTEGER)')
+                    conn.execute('INSERT INTO messages VALUES (NULL,?,?,?,?,?,?,?,?)', ('s', 'assistant', origin+3.2, None, None, 'Final answer', None, 0))
+                log.write_text('2026-01-01 12:00:03,000 INFO [s] agent.conversation_loop: API call #1: model=m latency=2.0s\n')
+                steps = module.build_steps([{'role': 'assistant', '_viewer_session_id': 's', 'content': 'Final answer', 'reasoning': 'Different thinking text'}])
+                self.assertEqual(steps[0]['thought'], 'Different thinking text')
+                self.assertTrue(module.enrich_timing({'session_start': datetime.fromtimestamp(origin).isoformat()}, steps, db, log))
+                self.assertEqual(steps[0]['model_seconds'], 2.0)
+                self.assertIsNone(steps[0]['tool_seconds'])
+                # Forced finalization has its own measured span; its DB write
+                # can be delayed, so match the session and answer fingerprint.
+                event = {'session_id': 's', 'content_sha256': steps[0]['sourceContentHash'],
+                         'started_at': origin + 10, 'duration_seconds': 7.25}
+                line = '2026-01-01 12:00:17,250 INFO agent.chat_completion_helpers: glasseek_finalization_timing ' + json.dumps(event) + '\n'
+                log.write_text(line)
+                steps = module.build_steps([{'role': 'assistant', '_viewer_session_id': 's', 'content': 'Final answer'}])
+                self.assertTrue(module.enrich_timing({'session_start': datetime.fromtimestamp(origin).isoformat()}, steps, db, log))
+                self.assertEqual((steps[0]['modelStart'], steps[0]['model_seconds']), (10, 7.25))
+                self.assertEqual(steps[0]['modelTimingKind'], 'finalization')
+                log.write_text(line + line)
+                steps = module.build_steps([{'role': 'assistant', '_viewer_session_id': 's', 'content': 'Final answer'}])
+                self.assertFalse(module.enrich_timing({'session_start': datetime.fromtimestamp(origin).isoformat()}, steps, db, log))
+                self.assertIsNone(steps[0]['model_seconds'])
+
     def test_partial_tool_and_first_token_metrics_and_zero_cache(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); log = root / 'agent.log'; config = root / 'config.yaml'

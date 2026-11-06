@@ -262,6 +262,20 @@ class HermesClient:
         if resume_session:
             env['GLASSEEK_RESUME_PIN_SESSION'] = '1'
 
+        if os.environ.get('GLASSEEK_MAX_TOOL_CALLS'):
+            from agent.glasseek_tool_budget import initialize
+            import sqlite3
+            budget_file = hermes_home() / 'profiles' / profile / 'tool_call_budget.json'
+            used_ids = set()
+            db = budget_file.parent / 'state.db'
+            if not budget_file.exists() and db.exists():
+                with sqlite3.connect(f'file:{db}?mode=ro', uri=True) as connection:
+                    for (calls,) in connection.execute("SELECT tool_calls FROM messages WHERE role='assistant' AND COALESCE(inherited_from_previous_session,0)=0"):
+                        for call in json.loads(calls or '[]'):
+                            if call.get('id'): used_ids.add(call['id'])
+            initialize(budget_file, int(os.environ['GLASSEEK_MAX_TOOL_CALLS']), len(used_ids))
+            env['GLASSEEK_TOOL_CALL_BUDGET_FILE'] = str(budget_file)
+
         started = time.time()
         stdout = ""
         stderr = ""

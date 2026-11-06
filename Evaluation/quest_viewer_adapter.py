@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -19,8 +20,8 @@ from browse_comp_eval.hermes_client import profile_name
 ROOT = Path(__file__).resolve().parent
 RUNTIME = ROOT / "data/runtime"
 RUN = os.environ.get("GLASSEEK_VIEWER_RUN", "glasseek_sft9b_quest128")
-DATASET = "quest_qwen27b_128"
-WORKSPACE = "glasseek-sft9b-browsecomp-128"
+DATASET = os.environ.get("GLASSEEK_VIEWER_DATASET", "quest_qwen27b_128")
+WORKSPACE = os.environ.get("GLASSEEK_VIEWER_WORKSPACE", "glasseek-sft9b-browsecomp-128")
 MODEL = os.environ.get("GLASSEEK_VIEWER_MODEL", "Glasseek SFT-9B")
 LABEL = os.environ.get("GLASSEEK_VIEWER_LABEL", f"{MODEL} · BrowseComp · Quest 128")
 
@@ -132,7 +133,7 @@ def build_steps(messages):
             display_thought = thought if call_index == 0 else ""
             if call_text:
                 display_thought = f'{display_thought}\n\n{call_text}' if display_thought else call_text
-            steps.append({"n": len(steps) + 1, "kind": kind, "label": {"search": "搜索", "read": "读取", "compute": "工具", "answer": "综合"}[kind], "thought": display_thought, "model_seconds": None, "tool_seconds": None, "modelStart": None, "modelEnd": None, "toolStart": None, "toolEnd": None, "tool": tool, "rawToolOutput": raw, "toolCallId": str(call.get('id') or call.get('call_id') or '') if call else '', "sourceSessionId": message.get('_viewer_session_id', '')})
+            steps.append({"n": len(steps) + 1, "kind": kind, "label": {"search": "搜索", "read": "读取", "compute": "工具", "answer": "综合"}[kind], "thought": display_thought, "model_seconds": None, "tool_seconds": None, "modelStart": None, "modelEnd": None, "toolStart": None, "toolEnd": None, "tool": tool, "rawToolOutput": raw, "toolCallId": str(call.get('id') or call.get('call_id') or '') if call else '', "sourceSessionId": message.get('_viewer_session_id', ''), "sourceContentHash": hashlib.sha256(str(message.get("content") or "").encode()).hexdigest()})
     return steps
 
 
@@ -182,6 +183,7 @@ def enrich_timing(session, steps, db_path, log_path):
         with sqlite3.connect(f'file:{db_path}?mode=ro', uri=True) as db:
             rows = db.execute('SELECT session_id, role, timestamp, tool_call_id, tool_name, content, tool_calls FROM messages WHERE COALESCE(inherited_from_previous_session, 0)=0 ORDER BY id').fetchall()
         api, tools, warnings, identified_tools = [], [], [], []
+        finalizations = []
         for line in log_path.read_text(encoding='utf-8', errors='replace').splitlines():
             stamp = re.match(r'^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d,\d+)', line)
             if not stamp:
@@ -196,6 +198,14 @@ def enrich_timing(session, steps, db_path, log_path):
             m = re.search(r'agent\.tool_executor: Tool (\S+) returned error \(([\d.]+)s\): (.+)$', line)
             if m:
                 warnings.append((ts, m.group(1), 'failed', float(m.group(2)), m.group(3)))
+            m = re.search(r'agent\.chat_completion_helpers: glasseek_finalization_timing (\{.*\})', line)
+            if m:
+                try:
+                    record = json.loads(m.group(1))
+                    finalizations.append((str(record['session_id']), str(record['content_sha256']),
+                                          float(record['started_at']), float(record['duration_seconds'])))
+                except (KeyError, TypeError, ValueError):
+                    continue
             m = re.search(r'agent\.tool_executor: glasseek_tool_timing (\{.*\})', line)
             if m:
                 try:
@@ -218,7 +228,17 @@ def enrich_timing(session, steps, db_path, log_path):
         complete = True
         for step in steps:
             sid, cid = step['sourceSessionId'], step['toolCallId']
-            candidates = [r for r in assistant if r[0] == sid and (cid in r[2] if cid else not r[2] and (r[3] or '') == step['thought'])]
+            final = [e for e in finalizations if not cid and e[0] == sid
+                     and e[1] == step.get('sourceContentHash')]
+            if final:
+                if len(final) != 1:
+                    complete = False
+                    continue
+                _, _, start, seconds = final[0]
+                step.update(modelStart=max(0.0, start - origin), modelEnd=max(0.0, start + seconds - origin),
+                            model_seconds=seconds, modelTimingKind='finalization')
+                continue
+            candidates = [r for r in assistant if r[0] == sid and (cid in r[2] if cid else not r[2] and (hashlib.sha256(r[3].encode()).hexdigest() == step['sourceContentHash'] if step.get('sourceContentHash') else (r[3] or '') == step['thought']))]
             if len(candidates) != 1:
                 complete = False
                 continue
@@ -399,11 +419,36 @@ def build_package():
         correct = bool(score) if isinstance(score, (int, float)) else None
         running = bool(active and profile.name in active_profiles and
                        (not result or result.get('status') == 'interrupted' or result.get('attempt_consumed') is False))
+        error_text = str((result or {}).get("error") or "")
+        tails = " ".join(str((result or {}).get(k) or "") for k in ("stdout_tail", "stderr_tail", "agent_log_tail"))
+        if running:
+            eval_status = "running"
+        elif not result:
+            eval_status = "interrupted"
+        elif result.get("user_terminated"):
+            eval_status = "user_terminated"
+        elif result.get("status") != "success":
+            eval_status = "tool_error" if any(x in error_text.lower() for x in ("tool", "sandbox", "code_execution")) else "inference_error"
+        elif "Reached maximum iterations (200)" in tails:
+            eval_status = "round_limit"
+        elif judge.get("status") == "judge_failed":
+            eval_status = "judge_error"
+        elif judge.get("status") == "judged":
+            eval_status = "correct" if bool(judge.get("score")) else "incorrect"
+        else:
+            eval_status = "judging"
         elapsed = duration(session)
         answer = str((result or {}).get("model_response") or "")
         stats = {"steps": len(steps), "searchCalls": counts['search'], "readCalls": counts['read'], "computeCalls": counts['compute'], "searchQueries": counts['search'], "resultsScanned": sum(s['tool'].get('resultCount', 0) for s in steps if s['tool']), "pagesRead": sum(s['tool'].get('pageCount', 0) for s in steps if s['tool']), "uniqueSources": 0, "uniqueDomains": 0, "averageStepSeconds": None, "longestStepSeconds": None}
-        cases.append({"id": case, "index": index, "field": "BrowseComp", "fieldZh": "BrowseComp", "topic": case, "topicZh": case, "question": row['question'], "answer": answer, "answerNote": "运行中" if running else "时长为会话记录窗口", "judge": "DeepSeek Flash · BrowseComp official", "correct": correct, "inProgress": running, "interrupted": bool(not active and not result), "rounds": rounds, "durationSeconds": elapsed, "durationText": f"{int(elapsed // 60)}m {int(elapsed % 60)}s", "model": MODEL, "risk": {"level": "unknown", "label": "未审计"}, "riskKey": "not_audited", "stats": stats, "sessionStats": session_stats, "timing": {}, "timingAvailable": timing_available, "domains": [], "steps": steps, "finalAnswer": answer, "keyIndices": [], "sources": []})
+        cases.append({"id": case, "index": index, "field": "BrowseComp", "fieldZh": "BrowseComp", "topic": case, "topicZh": case, "question": row['question'], "answer": answer, "answerNote": "运行中" if running else "时长为会话记录窗口", "judge": "DeepSeek Flash · BrowseComp official", "correct": correct, "evaluationStatus": eval_status, "evaluationError": error_text, "judgeStatus": judge.get("status"), "inProgress": running, "interrupted": bool(not active and not result), "rounds": rounds, "durationSeconds": elapsed, "durationText": f"{int(elapsed // 60)}m {int(elapsed % 60)}s", "model": MODEL, "risk": {"level": "unknown", "label": "未审计"}, "riskKey": "not_audited", "stats": stats, "sessionStats": session_stats, "timing": {}, "timingAvailable": timing_available, "domains": [], "steps": steps, "finalAnswer": answer, "keyIndices": [], "sources": []})
     run = {"name": LABEL, "model": MODEL, "benchmark": "BrowseComp · Quest 128", "date": datetime.now().date().isoformat(), "dateShort": datetime.now().date().isoformat(), "totalCases": len(cases), "requestedCases": len(rows), "judgePassed": sum(c['correct'] is True for c in cases), "judgeScored": sum(c['correct'] is not None for c in cases), "rounds": sum(c['rounds'] for c in cases), "toolCalls": sum(sum(c['stats'][k] for k in ('searchCalls','readCalls','computeCalls')) for c in cases), "pagesRead": sum(c['stats']['pagesRead'] for c in cases), "searchQueries": sum(c['stats']['searchQueries'] for c in cases), "searchCalls": sum(c['stats']['searchCalls'] for c in cases), "inProgress": any(c['inProgress'] for c in cases), "wiki": "Quest 27B 选择性难题子集；DeepSeek Flash 判分；未审计的轨迹不标记为安全。"}
+    counts = Counter(c['evaluationStatus'] for c in cases)
+    run['statusCounts'] = dict(counts)
+    run['errorCount'] = sum(counts[x] for x in ('inference_error', 'tool_error', 'judge_error', 'interrupted', 'user_terminated'))
+    run['roundLimitCount'] = counts['round_limit']
+    run['userTerminatedCount'] = counts['user_terminated']
+    run['unsuccessfulCount'] = counts['incorrect'] + counts['user_terminated']
+    run['wiki'] = f"BrowseComp 34；已评分 {run['judgeScored']}，通过 {run['judgePassed']}；异常 {run['errorCount']}；达到轮数上限 {run['roundLimitCount']}。"
     return {"generatedAt": datetime.now().astimezone().isoformat(), "run": run, "cases": cases}
 
 

@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "models": {
+    "glasseek-base-9b": [
+      {
+        "base_url": "http://127.0.0.1:18080/v1",
+        "status": "unknown",
+        "last_checked_at": null,
+        "last_healthy_at": null,
+        "unreachable_since": null,
+        "last_error": null
+      },
+      {
+        "base_url": "http://127.0.0.1:18082/v1",
+        "status": "unknown",
+        "last_checked_at": null,
+        "last_healthy_at": null,
+        "unreachable_since": null,
+        "last_error": null
+      },
+      {
+        "base_url": "http://127.0.0.1:18085/v1",
+        "status": "unknown",
+        "last_checked_at": null,
+        "last_healthy_at": null,
+        "unreachable_since": null,
+        "last_error": null
+      },
+      {
+        "base_url": "http://127.0.0.1:18086/v1",
+        "status": "unknown",
+        "last_checked_at": null,
+        "last_healthy_at": null,
+        "unreachable_since": null,
+        "last_error": null
+      },
+      {
+        "base_url": "http://127.0.0.1:18087/v1",
+        "status": "unknown",
+        "last_checked_at": null,
+        "last_healthy_at": null,
+        "unreachable_since": null,
+        "last_error": null
+      },
+      {
+        "base_url": "http://127.0.0.1:18088/v1",
+        "status": "unknown",
+        "last_checked_at": null,
+        "last_healthy_at": null,
+        "unreachable_since": null,
+        "last_error": null
+      },
+      {
+        "base_url": "http://127.0.0.1:18089/v1",
+        "status": "unknown",
+        "last_checked_at": null,
+        "last_healthy_at": null,
+        "unreachable_since": null,
+        "last_error": null
+      },
+      {
+        "base_url": "http://127.0.0.1:18090/v1",
+        "status": "unknown",
+        "last_checked_at": null,
+        "last_healthy_at": null,
+        "unreachable_since": null,
+        "last_error": null
+      }
+    ]
+  }
+}
