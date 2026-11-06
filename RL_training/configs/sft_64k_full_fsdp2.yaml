@@ -1,0 +1,56 @@
+defaults:
+  - sft_trainer_engine
+  - _self_
+hydra:
+  searchpath:
+    - pkg://verl.trainer.config
+model:
+  path: /root/autodl-tmp/models/Qwen3.5-9B
+  enable_gradient_checkpointing: true
+  lora_rank: 0
+  use_fused_kernels: true
+  fused_kernel_options:
+    impl_backend: torch
+  use_remove_padding: true
+data:
+  train_files: /root/autodl-tmp/Glasseek/data/glasseek/sft-64k/train.parquet
+  val_files: /root/autodl-tmp/Glasseek/data/glasseek/sft-64k/val.parquet
+  train_batch_size: 64
+  micro_batch_size_per_gpu: 1
+  max_length: 65536
+  max_token_len_per_gpu: 65536
+  use_dynamic_bsz: false
+  pad_mode: no_padding
+  truncation: error
+  messages_key: messages
+  custom_cls:
+    path: pkg://glasseek_training.sft_dataset
+    name: GlasseekSFTDataset
+  num_workers: 4
+  ignore_input_ids_mismatch: true
+optim:
+  lr: 2.0e-5
+  min_lr_ratio: 0.1
+  lr_scheduler_type: cosine
+  lr_warmup_steps_ratio: 0.03
+  weight_decay: 0.01
+engine:
+  strategy: fsdp2
+  model_dtype: bf16
+  ulysses_sequence_parallel_size: 1
+  reshard_after_forward: true
+  use_no_sync_for_gradient_accumulation: true
+  param_offload: false
+  optimizer_offload: false
+trainer:
+  project_name: glasseek
+  experiment_name: sft_64k_full_fsdp2_2gpu
+  default_local_dir: /root/autodl-tmp/Glasseek/checkpoints/glasseek/sft_64k_full_fsdp2_2gpu
+  total_epochs: 1
+  total_training_steps: null
+  logger: [console, tensorboard]
+  nnodes: 1
+  n_gpus_per_node: 2
+  save_freq: 10
+  test_freq: -1
+  resume_mode: auto

@@ -1,0 +1,112 @@
+defaults:
+  - ppo_trainer
+  - _self_
+
+hydra:
+  searchpath:
+    - pkg://verl.trainer.config
+
+data:
+  train_files: ${oc.env:RL_TRAIN_FILE,data/glasseek/rl/train.parquet}
+  val_files: ${oc.env:RL_VAL_FILE,data/glasseek/rl/val.parquet}
+  train_batch_size: 16
+  val_batch_size: 16
+  max_prompt_length: ${cm_gspo.context.max_prompt_length}
+  max_response_length: ${cm_gspo.context.max_response_length}
+  return_raw_chat: true
+  truncation: error
+  filter_overlong_prompts: false
+  dataloader_num_workers: 4
+  seed: 42
+
+actor_rollout_ref:
+  model:
+    path: ${oc.env:MODEL_PATH,Qwen/Qwen3.5-9B}
+    external_lib: glasseek_training.verl_loss
+    use_remove_padding: true
+    enable_gradient_checkpointing: true
+  actor:
+    strategy: fsdp2
+    ppo_mini_batch_size: 16
+    ppo_micro_batch_size_per_gpu: 1
+    use_dynamic_bsz: true
+    ppo_max_token_len_per_gpu: 131072
+    ppo_epochs: 1
+    policy_loss:
+      loss_mode: cm_gspo
+    loss_agg_mode: seq-mean-token-mean
+    clip_ratio: ${cm_gspo.clip_epsilon}
+    clip_ratio_low: ${cm_gspo.clip_epsilon}
+    clip_ratio_high: ${cm_gspo.clip_epsilon}
+    use_kl_loss: false
+    entropy_coeff: 0.0
+    optim:
+      lr: 1.0e-6
+      lr_warmup_steps_ratio: 0.0
+      lr_scheduler_type: constant
+    fsdp_config:
+      ulysses_sequence_parallel_size: 1
+  rollout:
+    name: vllm
+    mode: async
+    n: 8
+    temperature: 1.0
+    top_p: 1.0
+    top_k: -1
+    calculate_log_probs: true
+    logprobs_mode: raw_logprobs
+    tensor_model_parallel_size: 2
+    gpu_memory_utilization: 0.5
+    max_model_len: ${cm_gspo.context.max_model_len}
+    max_num_batched_tokens: 16384
+    max_num_seqs: 128
+    log_prob_micro_batch_size_per_gpu: 1
+    agent:
+      default_agent_loop: cm_search
+      agent_loop_config_path: ${oc.env:GLASSEEK_AGENT_CONFIG,RL_training/configs/agent_loop.yaml}
+      num_workers: 8
+    multi_turn:
+      enable: true
+    val_kwargs:
+      n: 8
+      temperature: 1.0
+      top_p: 1.0
+      top_k: -1
+      do_sample: true
+
+algorithm:
+  adv_estimator: grpo
+  norm_adv_by_std_in_grpo: true
+  use_kl_in_reward: false
+
+trainer:
+  total_training_steps: 100
+  total_epochs: 100
+  project_name: glasseek
+  experiment_name: cm-gspo
+  logger: [console]
+  nnodes: 1
+  n_gpus_per_node: 8
+  save_freq: 10
+  test_freq: -1
+  val_before_train: false
+  resume_mode: auto
+
+cm_gspo:
+  # Paper Table 4 does not specify RL context/clip/tool limits. These are
+  # engineering defaults, separately configurable from the published settings.
+  clip_epsilon: 0.0003
+  reward_mode: judge
+  tool_timeout: 60
+  tool_max_chars: 24000
+  context:
+    max_model_len: 131072
+    max_prompt_length: 16384
+    max_response_length: 114688
+    compact_at: 98304
+    max_turn_tokens: 8192
+    max_observation_tokens: 8192
+    summary_tokens: 4096
+    summary_reserve: 6144
+    max_turns: 128
+    max_compactions: 16
