@@ -139,6 +139,10 @@ The data construction pipeline, evaluation runner, backend, and [verl-based SFT/
 | [`RL_training/`](RL_training/) | verl SFT and CM-GSPO training, data conversion, configurations, and tests |
 | [`Evaluation/`](Evaluation/) | Benchmark runners, evaluation configurations, and reporting |
 | [`Evaluation_backend/`](Evaluation_backend/) | Tool services and evaluation safeguards |
+| [`Shared/`](Shared/README.md) | Shared Hermes contracts and explicit screening policies used by both frontends |
+| [`Evaluation/services/`](Evaluation/services/README.tool-services.md) | Shared search pool, fetch/retrieval launchers and incremental judging; public defaults in `Evaluation/config/` |
+| [`experiments/`](experiments/README.md) | Historical experiment code and configurations; the former local analysis tree has been retired |
+| [`reports/experiments/`](reports/experiments/README.md) | Archived experiment results, separated from inputs, checkpoints and caches |
 
 ## Citation
 

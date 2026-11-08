@@ -1,0 +1,39 @@
+{
+  "defaults": {
+    "max_model_len": 131072,
+    "gpu_memory_utilization": 0.92,
+    "kv_cache_dtype": "fp8",
+    "max_num_seqs": 16,
+    "tensor_parallel_size": 1
+  },
+  "profiles": {
+    "rl9b": {
+      "model_path": "{runtime}/models/Glasseeker-9B-RL",
+      "served_model_name": "glasseek-rl-9b"
+    },
+    "step39": {
+      "model_path": "{root}/checkpoints/archive/clean2899-full64k/step39-hf",
+      "served_model_name": "clean2899-step39",
+      "max_num_seqs": 32,
+      "thinking": true,
+      "sequence_env": "EVAL_PER_GPU_CONCURRENCY",
+      "cuda_home": "/usr/local/cuda",
+      "path_prefix": "/root/miniconda3/envs/ms-swift/bin"
+    },
+    "step76": {
+      "model_path": "{root}/checkpoints/archive/full64k-reeval/step76-hf",
+      "served_model_name": "full64k-step76",
+      "max_num_seqs": 8,
+      "cuda_home": "/usr/local/cuda",
+      "path_prefix": "/root/miniconda3/envs/ms-swift/bin"
+    },
+    "base9b": {
+      "model_path": "{root}/../models/Qwen3.5-9B",
+      "served_model_name": "glasseek-base-9b",
+      "max_num_seqs": 8,
+      "thinking": true,
+      "cuda_home": "/usr/local/cuda",
+      "path_prefix": "/root/miniconda3/envs/ms-swift/bin"
+    }
+  }
+}

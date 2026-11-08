@@ -52,7 +52,9 @@ def validate_environment(config):
     mode = config.cm_gspo.reward_mode
     if mode not in ("judge", "exact_match"):
         raise ValueError("cm_gspo.reward_mode must be judge or exact_match")
-    required = ["SERPER_API_KEY"]
+    required = []
+    if not (os.environ.get('GLASSEEK_SEARCH_POOL_ENDPOINT') or os.environ.get('SEARCH_SERVER_ENDPOINT')):
+        raise ValueError('Source Evaluation/services/search_pool_env.sh to configure the shared search pool')
     if mode == "judge":
         required += ["GLASSEEK_JUDGE_BASE_URL", "GLASSEEK_JUDGE_MODEL", "GLASSEEK_JUDGE_API_KEY"]
     missing = [name for name in required if not os.environ.get(name)]

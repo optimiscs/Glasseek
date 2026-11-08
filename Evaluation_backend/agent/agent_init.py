@@ -1008,6 +1008,9 @@ def init_agent(
         disabled_toolsets=disabled_toolsets,
         quiet_mode=agent.quiet_mode,
     )
+    if os.environ.get('GLASSEEK_URL_MODE', 'raw') != 'raw':
+        from glasseek_shared.hermes.url_registry import annotate_schemas
+        agent.tools = annotate_schemas(agent.tools)
     
     # Show tool configuration and store valid tool names for validation
     agent.valid_tool_names = set()
@@ -1092,6 +1095,12 @@ def init_agent(
     # <model>/<dataset>/<task>/<main|subagents> namespace split.
     agent.sessions_root_dir = get_sessions_root(model_name=agent.model)
     sync_agent_session_storage(agent)
+    if session_id:
+        from agent.session_clock import restored_session_start
+        agent.session_start = restored_session_start(
+            agent.session_id, agent.session_start,
+            agent.logs_dir / f"session_{agent.session_id}.json", session_db,
+        )
     # Per-session JSON snapshot writer.  BrowseComp-style evaluation tooling
     # consumes these grouped files under ~/.hermes/sessions, so keep them on
     # by default while allowing users to disable via sessions.write_json_snapshots.
@@ -1608,6 +1617,12 @@ def init_agent(
             api_mode=agent.api_mode,
             abort_on_summary_failure=compression_abort_on_summary_failure,
         )
+    from glasseek_shared.context.config import mode as _context_mode
+    if _context_mode() == "clm-notes":
+        from agent.clm_context import CLMContextEngine
+        agent.context_compressor = CLMContextEngine(agent.context_compressor)
+        if agent.enabled_toolsets is not None:
+            agent.enabled_toolsets = list(agent.enabled_toolsets) + ["context_engine"]
     agent.compression_enabled = compression_enabled
 
     # Reject models whose context window is below the minimum required

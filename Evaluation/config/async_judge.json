@@ -1,0 +1,14 @@
+{
+  "base_url": "https://api.deepseek.com/v1",
+  "model": "deepseek-flash",
+  "provider": "openai",
+  "api_version": "",
+  "timeout_seconds": 60,
+  "max_retries": 3,
+  "max_tokens": 2048,
+  "temperature": 0,
+  "top_p": 1,
+  "token_param": "max_tokens",
+  "use_json_schema": false,
+  "judge_template": "browsecomp"
+}

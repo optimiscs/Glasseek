@@ -556,6 +556,9 @@ def compress_context(
             agent._session_db.end_session(agent.session_id, "compression")
             old_session_id = agent.session_id
             agent.session_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+            if os.environ.get('GLASSEEK_URL_MODE', 'raw') != 'raw':
+                from glasseek_shared.hermes.url_registry import carry_registry
+                carry_registry(old_session_id, agent.session_id)
             agent.session_kind = SESSION_KIND_COMPRESSION
             agent._parent_session_id = old_session_id
             agent._root_session_id = getattr(agent, "_root_session_id", None) or old_session_id

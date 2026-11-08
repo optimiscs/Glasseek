@@ -1,5 +1,6 @@
 """Lossless JSON fields on disk; verl handles chat rendering and assistant masks."""
 import json
+import os
 import numpy as np
 import pandas as pd
 
@@ -14,6 +15,15 @@ class GlasseekSFTDataset(MultiTurnSFTDataset):
         for path in self.parquet_files:
             verify_release_file(path)
         self.dataframe = pd.concat([pd.read_parquet(path) for path in self.parquet_files], ignore_index=True)
+        mode = os.environ.get('GLASSEEK_URL_MODE', 'raw')
+        modes = set(self.dataframe['url_mode'].fillna('raw')) if 'url_mode' in self.dataframe else {'raw'}
+        if modes != {mode}:
+            raise ValueError(f'SFT URL protocol mismatch: dataset={modes}, --url-mode={mode}')
+        if mode != 'raw':
+            from glasseek_shared.hermes.url_registry import VERSION
+            versions = set(self.dataframe['url_protocol']) if 'url_protocol' in self.dataframe else set()
+            if versions != {VERSION}:
+                raise ValueError(f'SFT URL protocol version mismatch: {versions}; regenerate data using {VERSION}')
         if 0 < self.max_samples < len(self.dataframe):
             indices = (np.random.default_rng(self.seed).choice(len(self.dataframe), self.max_samples, replace=False)
                        if self.shuffle else np.arange(self.max_samples))
@@ -24,6 +34,18 @@ class GlasseekSFTDataset(MultiTurnSFTDataset):
                     lambda value: json.loads(value) if isinstance(value, str)
                     else convert_nested_value_to_list_recursive(value))
         self.messages = self.dataframe[self.messages_key].tolist()
+        from glasseek_shared.context.config import mode as context_mode
+        if context_mode() == 'clm':
+            from glasseek_shared.context.official.completion import final_text
+            for row in self.messages:
+                calls = [c for m in row for c in (m.get('tool_calls') or [])]
+                if not any((c.get('function') or c).get('name') == 'bash' for c in calls):
+                    raise ValueError('Official CLM SFT requires canonical bash action trajectories; note summaries are not CLM labels')
+                if not row or row[-1].get('role')!='assistant' or not final_text(row[-1],row[-1].get('finish_reason')):
+                    raise ValueError('CLM SFT requires a final assistant answer without tool calls; legacy file/echo submissions must be regenerated')
+        if mode != 'raw':
+            from glasseek_shared.hermes.url_prompt import apply_to_messages
+            self.messages = [apply_to_messages(messages, mode) for messages in self.messages]
         self.tools = (
             [None if pd.api.types.is_scalar(value) and pd.isna(value) else value
              for value in self.dataframe[self.tools_key]]

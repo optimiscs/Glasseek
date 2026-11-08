@@ -8,6 +8,7 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 PROJECT_ROOT=$SCRIPT_DIR
+source "$PROJECT_ROOT/../../Evaluation/services/search_pool_env.sh"
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
   echo "Usage: $0 [num_seeds=1] [run_id=v5_demo]"
   echo "       $0 --check   # import/config check; no model API call"

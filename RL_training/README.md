@@ -1,5 +1,26 @@
 # Glasseek：verl SFT 与 CM-GSPO
 
+启动入口已统一为 `scripts/train_sft.sh`。默认模式保留 `MODEL_PATH` 等环境变量；
+历史实验使用 `--profile 128k|64k|turns|clean2899|length`，配置集中在
+`configs/sft_launch_profiles.json`。`--print-command` 可在不加载训练模型的情况下
+检查实际命令；额外 Hydra 参数放在命令末尾并覆盖 profile 默认值。
+
+```bash
+bash RL_training/scripts/train_sft.sh --profile clean2899 --print-command
+bash RL_training/scripts/train_sft.sh --profile turns optim.lr=1e-5
+PYTHONPATH=RL_training python -m glasseek_training.lora_probe 4856 --profile offload --print-config
+python RL_training/glasseek_training/verify_weights.py --source /path/to/checkpoint --target /path/to/model.safetensors
+```
+
+`lora_probe.py` 合并单卡、DDP、128K 和 activation-offload 变体；其配置位于
+`configs/lora_probe_profiles.json`。`verify_weights.py` 共用精确 dtype/数值比较，
+支持通过 `--world-size` 指定分片数。这些参数预检不替代 GPU 训练或大权重实测。
+
+课程训练只保留 `curriculum_sft.py` 一个 trainer 实现，以
+`SFT_CURRICULUM_POLICY=length|turns` 选择策略。profile 自动设置该变量。
+长度策略仍为单卡、SP=1，按 epoch 随机选样后按长度排序；turns 策略仍要求双卡、
+SP=1、64K manifest，保留原补齐和分片次序。历史验证模块继续继承该 trainer。
+
 这里提供 SFT 配置、在线搜索 rollout、同策略摘要、CM-GSPO 数据流、终局奖励、检查点恢复和 CPU 回归测试。实现固定到 [verl v0.9.1 的 commit `1876b06`](https://github.com/verl-project/verl/tree/1876b06d0a3e4e71e06230be10af14492ca8a75b)，不修改安装目录中的 verl 源码。该 tag 内的版本字符串为 `0.9.1`。
 
 训练预算和学习率参考论文附录 C；本机 SFT 已按显存实测调整为 42K、LoRA 和四卡运行，因此不是论文全参 128K SFT 的复现。CM-GSPO 算法对应 §3.2 公式 (3)–(6)。
@@ -48,6 +69,85 @@ python -m glasseek_training.prepare_data rl \
 
 参考答案只进入 `reward_model.ground_truth`，不会传入搜索模型 prompt 或工具。
 
+### URL 表示模式
+
+数据准备、SFT、RL 和评测使用同一个 `--url-mode raw|hybrid|ref|evidence` 参数，
+也支持 `GLASSEEK_URL_MODE` 环境变量；命令行优先。未指定时为 `raw`，保持原有 URL、
+工具 schema 和工具返回值。公共实现位于 `Shared/glasseek_shared/hermes/url_registry.py`。
+
+非 raw 模式的正文来源引用统一写成 `<url>U1</url>`，证据片段写成
+`<url>D1@v1#E3</url>`。工具参数只传内部 ID，例如 XML 工具调用：
+
+```xml
+<tool_call>
+<function=web_extract>
+<parameter=urls>["U1"]</parameter>
+</function>
+</tool_call>
+```
+
+注册表内部以 `U1` 为键，程序恢复完整 URL。正文/工具观察显示 XML 引用，
+离线转换后的工具参数输出裸 ID；旧的完整 XML 参数仍兼容解析。
+协议版本为 `glasseek-url-v3-text-xml-args-id`；
+旧版非 raw SFT 数据应重新转换，旧评测结果保留，不与新协议混算。
+
+system prompt 插件由 `--url-prompt` 控制，训练和评估使用相同入口：
+
+```bash
+# 自动注入对应模式的映射说明与 XML few-shot（默认）
+python Evaluation/services/eval_run.py base9b full --url-mode ref --url-prompt auto
+# 关闭 system prompt 和工具描述的提示插件，仍保留 ref 程序解析，用于消融
+python Evaluation/services/eval_run.py base9b full --url-mode ref --url-prompt off
+# 读取自定义 JSON 配置；SFT、RL 和数据准备命令也接受这两个参数
+python Evaluation/services/eval_run.py base9b full --url-mode ref --url-prompt /path/to/url-prompts.json
+# 只预览插件，不启动模型或评估
+PYTHONPATH=Shared python -m glasseek_shared.hermes.url_prompt --url-mode evidence
+```
+
+默认配置为 `Shared/glasseek_shared/hermes/url_prompt_config.json`，包含 `version`、
+`common`、`modes`、`few_shot`、`tool_descriptions` 和 `tool_mode_descriptions`，
+可复制后修改，无需改 trainer。工具描述由同一插件追加到 system prompt 和 API tool schema；
+`--url-prompt off` 同时关闭两处附加说明，基础工具描述保留。
+环境变量为 `GLASSEEK_URL_PROMPT`，命令行优先；多机 RL 的自定义配置路径需所有 worker 可读。
+插件追加到默认或自定义 system prompt，已有基础提示保留；相同插件不会重复注入。
+示例不写入真实来源注册表，不包含未来轨迹映射；正文为稳定文本，便于前缀缓存。
+版本和内容 SHA256 随数据/轨迹元数据记录。更换配置后用新会话、新输出目录运行，
+不要在活动评测中编辑配置。`raw` 无论是否选择插件都保持原提示。
+
+| 模式 | 模型看到的来源表示 |
+| --- | --- |
+| `raw` | 原始 URL，原有默认行为 |
+| `hybrid` | 来源首次出现保留 URL 并附短 ID，后续使用短 ID；额外元数据可能增加 token |
+| `ref` | 短 ID 和域名，程序还原实际请求 URL |
+| `evidence` | 来源短 ID、带版本的页面快照及证据片段；可用 `D1@v1#E3` 读取已存片段 |
+
+直接在现有命令末尾添加参数。例如以 `ref` 为例：
+
+```bash
+python -m glasseek_training.prepare_data sft \
+  --input /data/trajectories.jsonl --output /data/sft-ref --url-mode ref
+SFT_TRAIN_FILE=/data/sft-ref/train.parquet SFT_VAL_FILE=/data/sft-ref/val.parquet \
+  bash RL_training/scripts/train_sft.sh --url-mode ref
+bash RL_training/scripts/train_cm_gspo.sh --url-mode ref
+python Evaluation/services/eval_run.py base9b full --url-mode ref
+# 直接调用原评测脚本时，在原有参数之后增加 --url-mode ref 也可。
+```
+
+SFT 必须先按所选模式准备数据，loader 会拒绝训练模式与数据标签不一致的样本。
+RL 的题目/参考答案数据无需 URL 改写，模式作用在在线工具边界。
+模型采样的 token 和 logprob 原样保留，程序只解析工具参数副本并转换新产生的工具观察；
+SFT 的离线消息转换与 RL 的在线采样是两个不同入口。
+
+短 ID 按每条轨迹独立分配，只在工具观察公布来源后可用于下一轮；同轮并行工具不能引用
+彼此尚未公布的来源。上下文压缩继承来源表，子任务使用独立来源表。
+评测映射和页面快照默认保存于 `$HERMES_HOME/url_registry`，可用
+`GLASSEEK_URL_STATE_DIR` 指定独立目录，包含原始 URL，按轨迹数据管理访问权限。
+
+34 条历史轨迹的确定性回放入口为 `scripts/trajectory_benchmark/benchmark_url_modes.py`；
+`run_url_modes_live.py --output <独立目录>` 复用现有评测入口执行四种模式端到端重跑。
+回放的 token 节省仅统计去重后的历史消息，不等于包含重复上下文的实际推理输入 token；
+工具参数还原率也不等于网络请求成功率或最终答案正确率。
+
 ## SFT
 
 ```bash
@@ -74,7 +174,7 @@ python -m verl.model_merger merge --backend fsdp \
 
 ```bash
 export MODEL_PATH=/models/glasseek-sft-hf
-export SERPER_API_KEY=...
+source Evaluation/services/search_pool_env.sh
 export JINA_API_KEY=...  # 可选
 export GLASSEEK_JUDGE_BASE_URL=https://your-judge-service/v1
 export GLASSEEK_JUDGE_MODEL=your-judge-model
@@ -82,7 +182,7 @@ export GLASSEEK_JUDGE_API_KEY=...
 bash RL_training/scripts/train_cm_gspo.sh
 ```
 
-默认使用 Serper `web_search` 和 Jina `web_extract`，支持 Qwen JSON/XML tool-call 格式；没有复用整个 Hermes 运行时，浏览器、代码执行等工具需要在 `web_tools.py` 扩展。模型通过 tokenizer 的 tools 参数得到工具 schema，生成 token 原样保留，工具返回值以 mask=0 追加。上下文压缩使用当前 rollout 的同一策略服务器；摘要调用不参与训练。
+`web_search` 使用与评测、数据生产相同的共享搜索池，启动及配置见 [搜索池说明](../Evaluation/services/README.search-pool.md)。Serper 密钥只保存在服务端，不需要分发给训练 worker；启动器会把池地址传入 Ray runtime environment。多机训练需设置所有 worker 都能访问的 `SEARCH_SERVER_ENDPOINT`，不能使用各机器自身的 localhost。`web_extract` 仍使用 Jina，支持 Qwen JSON/XML tool-call 格式；没有复用整个 Hermes 运行时，浏览器、代码执行等工具需要在 `web_tools.py` 扩展。模型通过 tokenizer 的 tools 参数得到工具 schema，生成 token 原样保留，工具返回值以 mask=0 追加。上下文压缩使用当前 rollout 的同一策略服务器；摘要调用不参与训练。
 
 默认奖励为外部 OpenAI-compatible judge 的正确性判断（0/1）；题目、参考答案和最终回答只在轨迹结束后送给 judge。judge 配置和判断提示是工程默认，论文没有给出可直接复用的完整训练奖励实现。网络/解析失败会使该训练 step 报错，避免把服务故障当作错误答案。工具调用错误作为工具观察返回。回合、生成或压缩次数耗尽的轨迹奖励为 0，但保留实际生成过的执行 token。
 

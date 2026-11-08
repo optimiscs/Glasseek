@@ -1,0 +1,21 @@
+{
+  "concurrency": 64,
+  "queue_limit": 1024,
+  "workers": 64,
+  "per_key_concurrency": 2,
+  "per_key_rps": 1,
+  "global_rps": 0,
+  "queue_timeout": 45,
+  "upstream_timeout": 75,
+  "upstream_budget": 120,
+  "client_timeout": 180,
+  "lease_seconds": 90,
+  "result_ttl": 3600,
+  "max_upstream_attempts": 0,
+  "redis_url": "redis://127.0.0.1:16383/0",
+  "namespace": "glasseek-fetch-v1",
+  "keys_file": "Evaluation/data/runtime/fetch_pool/keys.json",
+  "upstream_url": "https://r.jina.ai/",
+  "proxy_url": "http://127.0.0.1:18200",
+  "dns_safety": true
+}

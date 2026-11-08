@@ -1,0 +1,22 @@
+class TurnSampler(Sampler):
+    def __init__(self, messages, global_batch, world, rank):
+        if world != 2 or global_batch % world or not 0 <= rank < world:
+            raise ValueError("Expected two ranks and a divisible global batch")
+        self.world, self.rank, self.global_batch = world, rank, global_batch
+        self.local_batch = global_batch // world
+        self.rounds = [sum(m.get("role") == "assistant" for m in row) for row in messages]
+        if not self.rounds or min(self.rounds) < 1:
+            raise ValueError("Every trajectory must contain an assistant message")
+        order = sorted(range(len(messages)), key=lambda i: (self.rounds[i], i))
+        pad = (-len(order)) % global_batch
+        self.pad_indices = [order[i % len(order)] for i in range(pad)]
+        self.order = sorted(order + self.pad_indices, key=lambda i: (self.rounds[i], i))
+        self.epoch = 0
+    def set_epoch(self, epoch):
+        self.epoch = epoch
+    def __len__(self):
+        return len(self.order) // self.world
+    def __iter__(self):
+        for start in range(0, len(self.order), self.global_batch):
+            offset = start + self.rank * self.local_batch
+            yield from self.order[offset:offset + self.local_batch]

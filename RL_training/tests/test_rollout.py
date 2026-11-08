@@ -119,3 +119,42 @@ def test_multiple_compactions_keep_summary_out_of_all_training_likelihoods():
     assert data['response_mask'].sum() == 2*len(expected)
     assert data['old_log_probs'][data['response_mask'].bool()].eq(-.5).all()
     assert data['attention_mask'].sum() > data['response_mask'].sum()
+
+
+def test_clm_edit_keeps_sampled_ids_and_behavior_logprobs(monkeypatch):
+    monkeypatch.setenv('GLASSEEK_CONTEXT_MANAGER','clm-notes')
+    tokenizer=Tokenizer()
+    edit='<tool_call>{"name":"context_edit","arguments":{"base_version":0,"content":"remember task"}}</tool_call>'
+    answer='<answer>Paris</answer>'
+    requests=[]
+    async def generate(prompt,budget):
+        requests.append(list(prompt));ids=tokenizer.encode(edit if len(requests)==1 else answer)
+        return ids,[-.25]*len(ids)
+    cfg=RolloutSettings(max_model_len=10000,max_prompt_length=3000,max_response_length=6000,
+        compact_at=5000,max_turn_tokens=400,max_observation_tokens=1000,summary_tokens=100,
+        summary_reserve=1000,max_turns=4,max_compactions=2)
+    result=asyncio.run(SearchRollout(tokenizer,generate,Tools(),cfg).run([{'role':'user','content':'question'}]))
+    assert result['context_edits'][0]['accepted'] and len(result['segments'])==2
+    segments=result['segments']
+    assert segments[0]['prompt_ids']==requests[0] and segments[1]['prompt_ids']==requests[1]
+    sampled=[(t,p) for s in segments for t,p,m in zip(s['response_ids'],s['log_probs'],s['response_mask']) if m]
+    assert [t for t,p in sampled]==tokenizer.encode(edit+answer)
+    assert all(p==-.25 for t,p in sampled)
+    assert 'remember task' in tokenizer.decode(requests[1])
+
+
+def test_rejected_clm_edit_keeps_context_and_uses_existing_compaction(monkeypatch):
+    monkeypatch.setenv('GLASSEEK_CONTEXT_MANAGER','clm-notes')
+    tokenizer=Tokenizer()
+    edit='<tool_call>{"name":"context_edit","arguments":{"base_version":0,"content":"unseen U999"}}</tool_call>'
+    outputs=[edit,'safe fallback','<answer>Paris</answer>'];requests=[]
+    async def generate(prompt,budget):
+        i=len(requests);requests.append(list(prompt));ids=tokenizer.encode(outputs[i]);return ids,[-9. if i==1 else -.5]*len(ids)
+    cfg=RolloutSettings(max_model_len=10000,max_prompt_length=800,max_response_length=1400,
+        compact_at=1000,max_turn_tokens=400,max_observation_tokens=1000,summary_tokens=100,
+        summary_reserve=1000,max_turns=4,max_compactions=2)
+    result=asyncio.run(SearchRollout(tokenizer,generate,Tools(),cfg).run([{'role':'user','content':'question'}]))
+    assert not result['context_edits'][0]['accepted']
+    assert result['compactions']==1
+    assert all(-9. not in s['log_probs'] for s in result['segments'])
+    assert 'safe fallback' in tokenizer.decode(requests[-1])

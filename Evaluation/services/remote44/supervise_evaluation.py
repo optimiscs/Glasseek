@@ -31,9 +31,9 @@ def supervise(*, run, workspace_id, model, label, description, script, log_name)
                                   start_new_session=True)
     print('viewer publisher', viewer.pid, flush=True)
     summary = ROOT / 'output/preds' / run / DATASET / 'summary.jsonl'
-    incremental.SCRIPT, incremental.SUMMARY = script, summary
     stop = threading.Event()
-    thread = threading.Thread(target=incremental.judge_loop, args=(stop,), daemon=True)
+    thread = threading.Thread(target=incremental.watch_summary, args=(stop,),
+                              kwargs={'script': script, 'summary': summary}, daemon=True)
     thread.start()
     try:
         result = subprocess.run([str(script), 'full'], check=False)

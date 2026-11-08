@@ -3306,7 +3306,8 @@ class AIAgent:
         """Forwarder — see ``agent.system_prompt.build_system_prompt``."""
         system_prompt_override = getattr(self, "system_prompt_override", None)
         if system_prompt_override is not None:
-            return system_prompt_override
+            from glasseek_shared.hermes.url_prompt import append_system_prompt
+            return append_system_prompt(system_prompt_override)
         from agent.system_prompt import build_system_prompt
         return build_system_prompt(self, system_message=system_message)
 
@@ -4598,6 +4599,9 @@ class AIAgent:
         part of the canonical history and can make the next user turn fail before
         the agent has a chance to recover.
         """
+        if os.environ.get('GLASSEEK_URL_MODE', 'raw') != 'raw' and tool_name in ('web_search', 'web_extract'):
+            from glasseek_shared.hermes.url_registry import runtime_observe
+            result = runtime_observe(self.session_id, tool_name, result)
         if not _is_multimodal_tool_result(result):
             return result
 
@@ -5178,6 +5182,9 @@ class AIAgent:
         independent: read-only tools may always share the parallel path, while
         file reads/writes may do so only when their target paths do not overlap.
         """
+        if os.environ.get('GLASSEEK_URL_MODE', 'raw') != 'raw':
+            from glasseek_shared.hermes.url_registry import runtime_registry
+            runtime_registry(self.session_id or effective_task_id).begin_turn()
         tool_calls = assistant_message.tool_calls
         from agent.glasseek_tool_budget import reserve
         admitted = reserve(len(tool_calls))
@@ -5211,6 +5218,17 @@ class AIAgent:
         New DELEGATE_TASK_SCHEMA fields only need to be added here to reach all
         invocation paths (concurrent, sequential, inline).
         """
+        if os.environ.get('GLASSEEK_URL_MODE', 'raw') != 'raw':
+            from glasseek_shared.hermes.url_registry import runtime_registry
+            import copy
+            function_args = copy.deepcopy(function_args)
+            registry = runtime_registry(self.session_id)
+            # Children have isolated registries: hand over actual addresses,
+            # never parent-local reference tokens without their mapping.
+            for task in [function_args] + (function_args.get('tasks') or []):
+                for key in ('goal', 'context'):
+                    if isinstance(task.get(key), str):
+                        task[key] = registry.expand_references(task[key])
         from tools.delegate_tool import delegate_task as _delegate_task
         return _delegate_task(
             goal=function_args.get("goal"),

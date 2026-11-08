@@ -1900,6 +1900,15 @@ def run_conversation(
                             # affects 0 rows without error).
                             if not agent._session_db_created:
                                 agent._ensure_db_session()
+                            try:
+                                _context_payload = api_kwargs if isinstance(api_kwargs, dict) else {}
+                                agent._session_db.record_request_context(
+                                    agent.session_id,_context_payload.get('messages',api_messages),
+                                    _context_payload.get('tools',[] if 'messages' in _context_payload else agent.tools),prompt_tokens=prompt_tokens,
+                                    capacity_tokens=getattr(agent.context_compressor,'context_length',None),
+                                    provenance='request' if 'messages' in _context_payload else 'pretransport')
+                            except Exception as _context_error:
+                                logger.debug('Request context recording failed: %s', _context_error)
                             agent._session_db.update_token_counts(
                                 agent.session_id,
                                 input_tokens=canonical_usage.input_tokens,

@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "Evaluation"))
 import quest_viewer_adapter as adapter
@@ -12,6 +13,62 @@ import quest_viewer_checkpoint_adapter as checkpoint_adapter
 
 
 class QuestViewerAdapterTests(unittest.TestCase):
+    def test_paused_result_is_resumable_stopped_not_inference_failure(self):
+        for module in (adapter, checkpoint_adapter):
+            with self.subTest(adapter=module.__name__), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory); runtime = root / 'runtime'
+                runtime.mkdir()
+                (runtime / 'test.jsonl').write_text(json.dumps({'id': 'row1', 'question': 'test', 'answer': '', 'type': 'test'}))
+                output = root / 'output/preds/test-paused-session/test/conv/q1'
+                output.mkdir(parents=True)
+                (output / 'result.json').write_text(json.dumps({'question_id': 'row1', 'status': 'interrupted', 'attempt_consumed': False}))
+                with patch.multiple(module, ROOT=root, RUNTIME=runtime, RUN='test-paused-session', DATASET='test'):
+                    result = module.build_package()
+                case = result['cases'][0]
+                self.assertEqual(case['evaluationStatus'], 'interrupted')
+                self.assertTrue(case['interrupted'])
+                self.assertFalse(case['inProgress'])
+                self.assertEqual(result['run']['errorCount'], 0)
+
+    def test_repeated_resume_preserves_original_spans_and_pause_gap(self):
+        for module in (adapter, checkpoint_adapter):
+            with self.subTest(adapter=module.__name__), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory); db = root / 'state.db'; log = root / 'agent.log'
+                origin = datetime(2026, 1, 1, 12).timestamp()
+                with sqlite3.connect(db) as conn:
+                    conn.execute('CREATE TABLE sessions (id TEXT, started_at REAL)')
+                    conn.executemany('INSERT INTO sessions VALUES (?,?)', [('s', origin), ('unrelated', origin-1000)])
+                    conn.execute('CREATE TABLE messages (id INTEGER PRIMARY KEY, session_id TEXT, role TEXT, timestamp REAL, tool_call_id TEXT, tool_name TEXT, content TEXT, tool_calls TEXT, inherited_from_previous_session INTEGER)')
+                    for offset, content in ((3.2, 'before'), (3603.2, 'after')):
+                        conn.execute('INSERT INTO messages VALUES (NULL,?,?,?,?,?,?,?,?)', ('s', 'assistant', origin+offset, None, None, content, None, 0))
+                log.write_text('2026-01-01 12:00:03,000 INFO [s] agent.conversation_loop: API call #1: latency=2.0s\n'
+                               '2026-01-01 13:00:03,000 INFO [s] agent.conversation_loop: API call #1: latency=2.0s\n')
+                for resumed_offset in (3600, 7200):
+                    session = module.merge_session_chain([{'session_id': 's',
+                        'session_start': datetime.fromtimestamp(origin+resumed_offset).isoformat(),
+                        'last_updated': datetime.fromtimestamp(origin+resumed_offset+10).isoformat(),
+                        'messages': [{'role': 'assistant', 'content': x} for x in ('before', 'after')]}])
+                    steps = module.build_steps(session['messages'])
+                    self.assertTrue(module.enrich_timing(session, steps, db, log))
+                    self.assertEqual([s['modelStart'] for s in steps], [1.0, 3601.0])
+                    self.assertEqual(module.duration(session), resumed_offset+10)
+                    self.assertEqual([s['n'] for s in steps], [1, 2])
+                    self.assertTrue(session['_viewer_timing']['includesPauses'])
+
+    def test_compacted_origin_uses_ancestors_even_without_messages(self):
+        from quest_viewer_timing import restore_session_origin
+        with tempfile.TemporaryDirectory() as directory:
+            db = Path(directory) / 'state.db'
+            with sqlite3.connect(db) as conn:
+                conn.execute('CREATE TABLE sessions (id TEXT, started_at REAL)')
+                conn.executemany('INSERT INTO sessions VALUES (?,?)', [('parent', 100), ('child', 200), ('delegate', 10)])
+            for module in (adapter, checkpoint_adapter):
+                session = module.merge_session_chain([
+                    {'session_id': 'child', 'parent_session_id': 'parent', 'session_start': datetime.fromtimestamp(300).isoformat()},
+                    {'session_id': 'parent', 'session_start': datetime.fromtimestamp(250).isoformat()}])
+                restore_session_origin(session, db)
+                self.assertEqual(datetime.fromisoformat(session['session_start']).timestamp(), 100)
+
     def test_final_answer_timing_matches_content_not_displayed_reasoning(self):
         for module in (adapter, checkpoint_adapter):
             with self.subTest(adapter=module.__name__), tempfile.TemporaryDirectory() as directory:

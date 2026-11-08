@@ -27,35 +27,35 @@ __pycache__/
 *.pem
 *.key
 
-# Analysis code is versioned; generated datasets, caches and runtime snapshots
-# stay local. Selected small reports are explicitly tracked when published.
-/analysis/**
-!/analysis/**/
-!/analysis/**/*.py
-!/analysis/**/*.sh
-!/analysis/**/*.md
-!/analysis/**/*.yaml
-!/analysis/**/*.yml
-!/analysis/**/*.toml
-!/analysis/**/*.txt
-/analysis/**/site/
-/analysis/**/deps/
-/analysis/**/test-deps/
-/analysis/**/wheels/
-/analysis/**/flash-wheel/
-/analysis/**/Hy-MT2-1.8B/
-/analysis/**/remote_snapshot/
-/analysis/**/translated/
-/analysis/**/vllm-cache*/
-/analysis/**/triton-cache*/
-/analysis/**/tensorboard*/
-/analysis/**/session-audit/
-/analysis/**/profiles/
-/analysis/**/runtime/
-/analysis/**/hermes/
-/analysis/**/checkpoints/
-/analysis/**/*-hf/
-/analysis/paper-audit/
-/analysis/**/__pycache__/
-/analysis/**/cuda12/
-/analysis/clean2899-full64k/error-analysis-four/
+# Canonical archives: experiment source is versioned, generated assets are local.
+/.cache/
+/Evaluation/data/runtime/archive/
+/experiments/**
+!/experiments/**/
+!/experiments/**/*.py
+!/experiments/**/*.sh
+!/experiments/**/*.md
+!/experiments/**/*.yaml
+!/experiments/**/*.yml
+!/experiments/**/*.toml
+!/experiments/**/*.sql
+!/experiments/**/requirements.txt
+/experiments/**/__pycache__/
+/reports/analysis-inventory-20261106/inventory.json
+/reports/analysis-inventory-20261106/files.csv
+
+# Keep authored analysis helpers, not generated data or source snapshots.
+/reports/**
+!/reports/**/
+!/reports/**/*.py
+!/reports/**/*.sh
+!/reports/**/*.mjs
+!/reports/**/README.md
+!/reports/analysis-inventory-20261106/analysis-retirement.md
+/reports/**/source-snapshot/
+/reports/**/source_snapshot/
+/reports/**/frozen_source/
+/reports/**/verified_source/
+/reports/**/xml_source/
+/reports/**/*.executed.py
+*.before-*

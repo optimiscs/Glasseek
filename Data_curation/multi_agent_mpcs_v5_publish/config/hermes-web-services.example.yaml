@@ -1,14 +1,14 @@
 # Optional replacement for the web section of .hermes/config.yaml.
-# These service implementations are NOT included in this repository.
-# Fill URLs with your own compatible services. Never publish real credentials.
+# Search uses Evaluation/services/search_pool.py and its shared configuration.
+# Configure the extraction service separately. Never publish real credentials.
 web:
   search_backend: search_server
   extract_backend: fetch_server
   search_server:
-    endpoint: ""
+    endpoint: "${SEARCH_SERVER_ENDPOINT}"
     api_key: "${SEARCH_SERVER_API_KEY}"
-    timeout: 30.0
-    max_retries: 3
+    timeout: 60.0
+    max_retries: 1
   fetch_server:
     base_url: ""
     extract_mode: text

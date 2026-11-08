@@ -5,6 +5,7 @@ import json
 import math
 import os
 import re
+import runpy
 import shutil
 import signal
 import subprocess
@@ -134,6 +135,11 @@ class HermesConfig:
 class HermesClient:
     def __init__(self, config: HermesConfig):
         self.config = config
+        self._search_pool_env: dict[str, str] = {}
+        pool_cli = Path(__file__).resolve().parents[1] / 'services/search_pool.py'
+        if config.search_mode == 'external' and pool_cli.is_file():
+            pool = runpy.run_path(str(pool_cli))
+            self._search_pool_env = pool['client_env'](pool['load_config']())
         self._active_process_lock = threading.RLock()
         self._active_processes: dict[int, subprocess.Popen[str]] = {}
         self._process_cancel_reasons: dict[int, str] = {}
@@ -235,6 +241,7 @@ class HermesClient:
         *,
         mock_search_server: MockSearchServer | None = None,
     ) -> dict[str, Any]:
+        official_clm = os.environ.get('GLASSEEK_CONTEXT_MANAGER') == 'clm'
         execution_generation = self._begin_execution()
         workspace_dir.mkdir(parents=True, exist_ok=True)
         profile = profile_name(self.config.save_name, spec.run_id, attempt)
@@ -251,7 +258,7 @@ class HermesClient:
                  'Do not repeat completed work; finish the original question and use the requested answer format.'
                  if resume_session else build_query(spec, dataset=self.config.dataset))
         cmd = self._build_chat_command(profile, query)
-        if resume_session:
+        if resume_session and not official_clm:
             cmd.extend(['--resume', resume_session])
             print(f'Resuming {spec.run_id} from session {resume_session}', flush=True)
         env = self._build_env(
@@ -261,6 +268,21 @@ class HermesClient:
         )
         if resume_session:
             env['GLASSEEK_RESUME_PIN_SESSION'] = '1'
+
+        official_result = workspace_dir / 'official-clm-result.json'
+        if official_clm:
+            root = Path(__file__).resolve().parents[2]
+            worker_config = workspace_dir / 'official-clm-request.json'
+            snapshot = session_snapshot_path(str(hermes_home() / 'sessions'), self.config.save_name,
+                self.config.dataset, spec.question_id, 'clm-' + profile)
+            worker_config.write_text(json.dumps(dict(output=str(workspace_dir/'official-clm'),
+                question=build_query(spec, dataset=self.config.dataset),model=self.config.model,
+                base_url=self.config.base_url,context_length=self.config.context_length,max_steps=self.config.max_rounds,max_tokens=self.config.max_tokens,temperature=self.config.temperature,
+                context_budget=(self.config.context_length or 32768)-(self.config.max_tokens or 4096),
+                session_id='clm-'+profile,snapshot=str(snapshot),started_at=time.time())))
+            python=os.environ.get('GLASSEEK_CLM_PYTHON',str(root/'.cache/clm-official-env/bin/python'))
+            cmd=[python,str(root/'Evaluation/services/clm_worker.py'),'--config',str(worker_config),'--result',str(official_result),'--profile',profile]
+            official_result.unlink(missing_ok=True)
 
         if os.environ.get('GLASSEEK_MAX_TOOL_CALLS'):
             from agent.glasseek_tool_budget import initialize
@@ -368,7 +390,13 @@ class HermesClient:
             profile,
             snapshot_path=snapshot_path,
         )
+        official_payload = json.loads(official_result.read_text()) if official_clm and official_result.exists() else None
+        if official_payload:
+            session = official_payload['session']
+            session_id = session['session_id']
         trace = extract_trace(session)
+        if official_payload:
+            trace['tool_calls'].update(official_payload['web_calls'])
         model_response, final_assistant_error = extract_final_assistant_message(session)
         agent_log_tail = read_profile_agent_log_tail(profile)
         attempt_agent_log = read_profile_agent_log_since(profile, agent_log_offset)
@@ -390,6 +418,8 @@ class HermesClient:
         if not model_response and status == "success":
             status = "failed"
             error = final_assistant_error or "empty final assistant response"
+            if official_payload:
+                failure_type = official_payload.get('stop_reason') or 'no_final_answer'
         mcp_registration_error = ""
         if "browsecomp-plus-bm25" in self.config.toolsets:
             mcp_registration_error = browsecomp_plus_mcp_registration_error(
@@ -705,6 +735,10 @@ class HermesClient:
         mock_search_server: MockSearchServer | None = None,
     ) -> dict[str, str]:
         env = os.environ.copy()
+        env.update(self._search_pool_env)
+        if self.config.search_mode != 'external':
+            env.pop('GLASSEEK_SEARCH_POOL_ENDPOINT', None)
+            env.pop('GLASSEEK_SEARCH_POOL_TIMEOUT', None)
         env["ANTHROPIC_API_KEY"] = self.config.api_key
         env["OPENAI_API_KEY"] = self.config.api_key
         if self.config.base_url:
@@ -750,9 +784,14 @@ class HermesClient:
                 "SEARCH_SERVER_API_KEY",
             ):
                 env.pop(name, None)
+            env.pop('GLASSEEK_SEARCH_POOL_ENDPOINT', None)
+            env.pop('GLASSEEK_SEARCH_POOL_TIMEOUT', None)
         if mock_search_server is not None:
             env["SEARCH_SERVER_ENDPOINT"] = mock_search_server.endpoint
             env["SEARCH_SERVER_API_KEY"] = mock_search_server.api_key
+            # Never let the real pool override an explicitly requested mock.
+            env.pop('GLASSEEK_SEARCH_POOL_ENDPOINT', None)
+            env.pop('GLASSEEK_SEARCH_POOL_TIMEOUT', None)
         return env
 
     def _merge_profile_env(self, env_path: Path, browser_cdp_url: str = "") -> None:
