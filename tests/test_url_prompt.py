@@ -58,7 +58,7 @@ def test_custom_config_is_replaceable_and_versioned(tmp_path):
 
 def test_few_shots_parse_as_xml_and_resolve_real_registered_sources():
     calls = parse_tool_calls(prompt_module('evidence', 'auto')['text'])
-    assert calls[0] == {'name': 'web_extract', 'arguments': {'urls': '["U1"]'}}
+    assert calls[0] == {'name': 'web_extract', 'arguments': {'urls': ['U1']}}
     for call in calls:
         assert '<url>' not in str(call['arguments'])
     registry = URLRegistry('evidence')

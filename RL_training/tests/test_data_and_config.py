@@ -87,19 +87,32 @@ def test_sft_tool_dicts_roundtrip_without_arrow_null_keys(tmp_path):
 
 def test_sft_dataset_normalizes_missing_tool_values(tmp_path, monkeypatch):
     import pandas as pd
-    from glasseek_training import sft_dataset
+    import ast
+    from glasseek_shared import trajectory_release
 
+    # Exercise the actual loader class without importing GPU/verl infrastructure.
+    source = Path(__file__).resolve().parents[1] / 'glasseek_training/sft_dataset.py'
+    tree = ast.parse(source.read_text())
+    node = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'GlasseekSFTDataset')
+    node.bases = [ast.Name(id='object', ctx=ast.Load())]
+    ast.fix_missing_locations(node)
+    namespace = {'pd': pd, 'json': json, 'os': os,
+                 'convert_nested_value_to_list_recursive': lambda value: value,
+                 'extract_system_prompt_and_generation': lambda *a, **kw: ([], [])}
+    exec(compile(ast.Module(body=[node], type_ignores=[]), str(source), 'exec'), namespace)
+    checked = []
+    monkeypatch.setattr(trajectory_release, 'verify_release_file', lambda path: checked.append(path))
     path = tmp_path / 'data.parquet'
     tool = {'type': 'function', 'function': {'name': 'search'}}
     pd.DataFrame({'messages': ['[]', '[]'], 'tools': [None, json.dumps([tool])]}).to_parquet(path)
-    ds = object.__new__(sft_dataset.GlasseekSFTDataset)
+    ds = object.__new__(namespace['GlasseekSFTDataset'])
     ds.parquet_files, ds.messages_key, ds.tools_key = [str(path)], 'messages', 'tools'
     ds.enable_thinking_key, ds.enable_thinking_default = 'enable_thinking', None
     ds.max_samples, ds.seed, ds.shuffle = -1, 42, False
     ds.tokenizer, ds.apply_chat_template_kwargs = None, {}
-    monkeypatch.setattr(sft_dataset, 'extract_system_prompt_and_generation', lambda *a, **kw: ([], []))
     ds._read_files_and_process()
     assert ds.tools == [None, [tool]]
+    assert checked == [str(path)]
 
 
 def test_system_only_template_fallback_preserves_context_and_masks_loss():

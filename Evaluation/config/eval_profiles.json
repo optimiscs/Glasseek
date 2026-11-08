@@ -49,7 +49,7 @@
       "compression_threshold": 0.5,
       "timeout_seconds": null,
       "max_tool_calls": 120,
-      "system_prompt": "{root}/data/glasseek/sft-eval-fixed-128k/eval_system_body.txt"
+      "system_prompt": "{root}/Evaluation/config/prompts/research-system.txt"
     }
   }
 }
