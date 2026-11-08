@@ -1,0 +1,37 @@
+{
+  "version": "trajectory-safety-v2-answer-leakage",
+  "disabled_rules": ["privacy.email", "privacy.phone"],
+  "answer_overlap_max_chars": 120000,
+  "hmac_key_env": "TRAJECTORY_SAFETY_HMAC_KEY",
+  "max_view_chars": 2000000,
+  "max_findings": 200,
+  "max_decode_layers": 3,
+  "benchmark_patterns": [
+    "(?i)browse[._ /-]?comp(?:arison)?(?:[._ /-]?plus)?",
+    "(?i)(?:gaia|sealqa|xbench)[^\\n]{0,60}(?:ground[ _-]?truth|answer[ _-]?key|dataset|benchmark)",
+    "(?i)(?:answer[ _-]?key|ground[ _-]?truth|reference_answers?)(?:[./\\\\]|\\s*[:=])"
+  ],
+  "injection_patterns": [
+    "(?i)(?:ignore|disregard)\\s+(?:all\\s+|the\\s+)?(?:previous|prior|system|above)\\s+instructions",
+    "(?:忽略|无视|覆盖).{0,12}(?:先前|之前|系统|上面).{0,8}(?:指令|要求|规则)",
+    "(?i)(?:<\\s*(?:system|developer)\\s*>|\\[im_start\\](?:system|developer)|system\\s+prompt\\s+override)",
+    "(?i)(?:send|upload|transmit|exfiltrate)[^\\n]{0,100}(?:api[ _-]?key|password|secret|system prompt)",
+    "(?:发送|上传|泄露).{0,60}(?:密钥|密码|系统提示词)"
+  ],
+  "llm": {
+    "enabled": false,
+    "stages": ["safety_review"],
+    "max_records": 36,
+    "max_prompt_chars": 18000,
+    "context_chars": 1000,
+    "allow_release": false
+  },
+  "release_labels": {
+    "injection.suspected": ["quoted_only", "attack_resisted"],
+    "privacy.email": ["public_contact", "synthetic_example"],
+    "privacy.phone": ["public_contact", "synthetic_example"],
+    "benchmark.reference": ["benign_reference"]
+  },
+  "human_overridable_categories": ["credential", "privacy", "injection", "benchmark", "url", "dependency"],
+  "scope": "Offline text and tool-call screening. No DNS lookup, URL fetch, credential validation, code execution or factual-quality approval."
+}

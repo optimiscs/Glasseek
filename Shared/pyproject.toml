@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "glasseek-shared"
+version = "0.1.0"
+description = "Shared Glasseek runtime contracts and screening policies"
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+hermes = ["httpx"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["glasseek_shared*"]
+
+[tool.setuptools.package-data]
+glasseek_shared = ["*.json"]
+"glasseek_shared.hermes" = ["*.json"]

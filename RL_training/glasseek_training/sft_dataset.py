@@ -10,6 +10,9 @@ from verl.utils.py_functional import convert_nested_value_to_list_recursive
 
 class GlasseekSFTDataset(MultiTurnSFTDataset):
     def _read_files_and_process(self):
+        from glasseek_shared.trajectory_release import verify_release_file
+        for path in self.parquet_files:
+            verify_release_file(path)
         self.dataframe = pd.concat([pd.read_parquet(path) for path in self.parquet_files], ignore_index=True)
         if 0 < self.max_samples < len(self.dataframe):
             indices = (np.random.default_rng(self.seed).choice(len(self.dataframe), self.max_samples, replace=False)
