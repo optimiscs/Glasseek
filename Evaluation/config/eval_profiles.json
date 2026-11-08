@@ -1,0 +1,55 @@
+{
+  "defaults": {
+    "dataset": "quest_qwen27b_128",
+    "workers_per_endpoint": 8,
+    "ramp_start": 32,
+    "ramp_max": 32,
+    "max_rounds": 200,
+    "max_retries": 1,
+    "timeout_seconds": 3600,
+    "context_length": 131072
+  },
+  "profiles": {
+    "rl9b": {
+      "model": "glasseek-rl-9b",
+      "registry": "rl9b-vllm-registry.json",
+      "run": "glasseek_rl9b_quest128_32"
+    },
+    "sft9b": {
+      "model": "glasseek-sft-9b",
+      "registry": "single-vllm-registry.json",
+      "run": "glasseek_sft9b_quest128_gpu_embedding_c10_browsecomp"
+    },
+    "rl4": {
+      "model": "glasseek-rl-4b",
+      "registry": "remote44-rl4-registry.json",
+      "run": "glasseek_rl4_quest128_ssh44_c16",
+      "workers_per_endpoint": 4,
+      "ramp_start": 4,
+      "ramp_max": 4
+    },
+    "base9b": {
+      "protocol": "step39_128",
+      "model": "glasseek-base-9b",
+      "base_urls": "http://127.0.0.1:19109/v1",
+      "run": "base9b_browsecomp128_c8",
+      "workers_per_endpoint": 8
+    }
+  },
+  "protocols": {
+    "step39_128": {
+      "dataset": "quest_qwen27b_128",
+      "expected_questions": 128,
+      "repeats": 1,
+      "max_rounds": 200,
+      "max_retries": 1,
+      "max_tokens": 16384,
+      "context_length": 131072,
+      "context_compression": true,
+      "compression_threshold": 0.5,
+      "timeout_seconds": null,
+      "max_tool_calls": 120,
+      "system_prompt": "{root}/data/glasseek/sft-eval-fixed-128k/eval_system_body.txt"
+    }
+  }
+}

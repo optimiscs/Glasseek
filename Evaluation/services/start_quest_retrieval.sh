@@ -7,11 +7,8 @@ quest="${QUEST_ROOT:-$(dirname "$(dirname "$evaluation")")/Quest}"
 service="$evaluation/services"
 python="${QUEST_PYTHON:-$quest/workspace/env/bin/python}"
 mkdir -p "$runtime"
-export VISIT_BM25_POOL_URL=http://127.0.0.1:18215 VISIT_EMBEDDING_URL=http://127.0.0.1:18213
-export VISIT_RETRIEVAL_CANDIDATES=${VISIT_RETRIEVAL_CANDIDATES:-64} VISIT_RETRIEVAL_TOP_K=${VISIT_RETRIEVAL_TOP_K:-16}
-export GLASSEEK_RETRIEVAL_CONCURRENCY=${GLASSEEK_RETRIEVAL_CONCURRENCY:-4}
 export OMP_NUM_THREADS=${OMP_NUM_THREADS:-16} MKL_NUM_THREADS=${MKL_NUM_THREADS:-16} TOKENIZERS_PARALLELISM=false
-export NO_PROXY=localhost,127.0.0.1 no_proxy=localhost,127.0.0.1
+source "$service/tool_services_env.sh"
 start() {
   local name=$1
   shift
@@ -23,11 +20,12 @@ start() {
   echo "$!" >"$runtime/$name.pid"
   echo "$name started pid=$!"
 }
-start bm25 "$python" "$quest/inference/bm25_pool_service.py" --workers 4 --queue-limit 16 --port 18215
+start bm25 "$python" "$service/tool_services.py" serve bm25
 export GPU_MEMORY_UTILIZATION=${GPU_MEMORY_UTILIZATION:-0.80} MAX_MODEL_LEN=${MAX_MODEL_LEN:-2048} MAX_NUM_SEQS=${MAX_NUM_SEQS:-16}
 export HF_HOME=$base_runtime/cache/huggingface
 export VLLM_CACHE_ROOT=$base_runtime/cache/vllm-embedding-gpu1
 export TRITON_CACHE_DIR=$base_runtime/cache/triton-embedding-gpu1
-start embedding_gpu "$quest/inference/scripts/serve_single_gpu.sh" embedding 1 18218
-start embedding_adapter "$python" "$quest/inference/retrieval_vllm_adapter.py" --role embedding --model QWEN3-EMBEDDING-8B --upstream http://127.0.0.1:18218 --port 18213
-(cd "$service" && start bridge "$python" -m uvicorn quest_retrieval_bridge:app --host 127.0.0.1 --port 18217)
+embedding_port="$("$python" -c 'import os; from urllib.parse import urlsplit; u=urlsplit(os.environ["GLASSEEK_EMBEDDING_UPSTREAM"]); assert u.hostname == "127.0.0.1" and u.port; print(u.port)')"
+start embedding_gpu "$quest/inference/scripts/serve_single_gpu.sh" embedding 1 "$embedding_port"
+start embedding_adapter "$python" "$service/tool_services.py" serve embedding
+start bridge "$python" "$service/tool_services.py" serve bridge

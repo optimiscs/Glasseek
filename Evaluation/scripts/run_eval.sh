@@ -6,7 +6,17 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EVAL_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 HERMES_REPO="$(cd "${EVAL_ROOT}/../Evaluation_backend" && pwd)"
+export PYTHONPATH="${EVAL_ROOT}/../Shared${PYTHONPATH:+:${PYTHONPATH}}"
 WORKSPACE="${EVAL_ROOT}"
+_retrieval_mode="${GLASSEEK_QUEST_PAGE_RETRIEVAL-}"
+source "$EVAL_ROOT/services/tool_services_env.sh"
+# Generic callers still choose which tool features to enable; profiles opt in.
+if [[ -z "$_retrieval_mode" ]]; then
+  unset GLASSEEK_QUEST_PAGE_RETRIEVAL
+else
+  export GLASSEEK_QUEST_PAGE_RETRIEVAL="$_retrieval_mode"
+fi
+unset _retrieval_mode
 
 usage() {
   cat <<'EOF'
@@ -63,6 +73,8 @@ Run controls:
   --max-retries N               Maximum attempts for each run (default: 3)
   --timeout-seconds N           Per-attempt timeout (default: 3600)
   --context-length N            Model context length (default: 131072)
+  --context-manager MODE        hermes (default) or clm
+  --context-manager-config PATH Context manager JSON config
   --context-compression BOOL    Enable context compression: true/false (default: true)
   --compression-threshold N     Compress at this context ratio, 0 < N <= 1 (default: 0.5)
   --reasoning-effort LEVEL      Optional: low, medium, high, or max (default: API/model default)
@@ -75,6 +87,10 @@ Run controls:
   --endpoint-watchdog-failures N  Failures before quarantine (default: 3)
   --endpoint-watchdog-recovery-successes N  Successes before re-entry (default: 2)
   --all-endpoints-down-timeout N  Continuous all-down seconds before exit 75 (default: 300)
+  --url-mode MODE               raw (default), hybrid, ref, evidence
+  --url-prompt SPEC             auto (built-in), off, or URL prompt JSON config path
+  --viewer / --no-viewer        Automatically update trajectory viewer (default: on)
+  --viewer-interval SECONDS     Viewer refresh interval (default: 20)
   --tool-whitelist CSV          Enabled Hermes toolsets
   --skill-whitelist CSV         Preloaded Hermes skills
   --enable-browser              Enable browser tool and BROWSER_CDP_URL
@@ -242,8 +258,26 @@ while [[ "$#" -gt 0 ]]; do
       ;;
     --reasoning-effort)
       need_value "$@"; REASONING_EFFORT="$2"; shift 2 ;;
+    --context-manager)
+      need_value "$@"; export GLASSEEK_CONTEXT_MANAGER="$2"; shift 2 ;;
+    --context-manager-config)
+      need_value "$@"; export GLASSEEK_CONTEXT_MANAGER_CONFIG="$(realpath -e -- "$2")"; shift 2 ;;
     --context-compression)
       need_value "$@"; CONTEXT_COMPRESSION="$2"; shift 2 ;;
+    --url-mode)
+      need_value "$@"
+      case "$2" in raw|hybrid|ref|evidence) export GLASSEEK_URL_MODE="$2" ;; *) die "Invalid --url-mode: $2" ;; esac
+      shift 2 ;;
+    --url-prompt)
+      need_value "$@"
+      case "$2" in auto|off) export GLASSEEK_URL_PROMPT="$2" ;; *) export GLASSEEK_URL_PROMPT="$(realpath -e -- "$2")" ;; esac
+      shift 2 ;;
+    --viewer)
+      export GLASSEEK_VIEWER_ENABLED=1; shift ;;
+    --no-viewer)
+      export GLASSEEK_VIEWER_ENABLED=0; shift ;;
+    --viewer-interval)
+      need_value "$@"; export GLASSEEK_VIEWER_INTERVAL="$2"; shift 2 ;;
     --tool-whitelist)
       need_value "$@"; TOOL_WHITELIST="$2"; shift 2 ;;
     --skill-whitelist)

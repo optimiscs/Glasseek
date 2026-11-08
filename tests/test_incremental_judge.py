@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 
 SERVICES = Path(__file__).resolve().parents[1] / 'Evaluation/services/remote44'
+sys.path.insert(0, str(SERVICES.parents[1]))
 sys.path.insert(0, str(SERVICES))
 spec = importlib.util.spec_from_file_location('incremental_judge', SERVICES / 'run_sft9b_16_and_judge.py')
 module = importlib.util.module_from_spec(spec)

@@ -16,6 +16,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from browse_comp_eval.hermes_client import profile_name
+from quest_viewer_timing import restore_session_origin
 
 ROOT = Path(__file__).resolve().parent
 RUNTIME = ROOT / "data/runtime"
@@ -158,6 +159,7 @@ def merge_session_chain(snapshots):
         current = by_id.get(current.get('parent_session_id'))
     chain.reverse()
     merged = dict(chain[-1])
+    merged['_viewer_session_ids'] = [s['session_id'] for s in chain if s.get('session_id')]
     merged['session_start'] = chain[0].get('session_start') or merged.get('session_start')
     merged['messages'] = [{**m, '_viewer_session_id': session.get('session_id', '')} for i, session in enumerate(chain)
                           for m in session.get('messages', [])
@@ -176,6 +178,7 @@ def unwrap_tool_output(text):
 
 def enrich_timing(session, steps, db_path, log_path):
     """Use only uniquely matched recorded spans; return False on ambiguity."""
+    restore_session_origin(session, db_path)
     if not steps or not db_path.is_file() or not log_path.is_file():
         return False
     try:
@@ -412,6 +415,10 @@ def build_package():
         profile = find_profile(RUN, case, session, result, RUNTIME / 'hermes/profiles')
         timing_available = enrich_timing(session, steps, profile / 'state.db', profile / 'logs/agent.log')
         session_stats = session_statistics(session, profile / 'logs/agent.log', profile / 'config.yaml', steps)
+        from quest_viewer_timing import request_context_stats
+        _request_context = request_context_stats(session, profile/'state.db')
+        if _request_context:
+            session_stats.setdefault('context', {}).update(_request_context)
         rounds = sum(1 for m in session.get('messages', []) if m.get('role') == 'assistant' and (m.get('tool_calls') or m.get('reasoning') or m.get('reasoning_content') or m.get('content')))
         counts = Counter(s["kind"] for s in steps if s["tool"])
         judge = judges.get(case) or {}
@@ -423,7 +430,7 @@ def build_package():
         tails = " ".join(str((result or {}).get(k) or "") for k in ("stdout_tail", "stderr_tail", "agent_log_tail"))
         if running:
             eval_status = "running"
-        elif not result:
+        elif not result or result.get("status") == "interrupted":
             eval_status = "interrupted"
         elif result.get("user_terminated"):
             eval_status = "user_terminated"
@@ -440,11 +447,11 @@ def build_package():
         elapsed = duration(session)
         answer = str((result or {}).get("model_response") or "")
         stats = {"steps": len(steps), "searchCalls": counts['search'], "readCalls": counts['read'], "computeCalls": counts['compute'], "searchQueries": counts['search'], "resultsScanned": sum(s['tool'].get('resultCount', 0) for s in steps if s['tool']), "pagesRead": sum(s['tool'].get('pageCount', 0) for s in steps if s['tool']), "uniqueSources": 0, "uniqueDomains": 0, "averageStepSeconds": None, "longestStepSeconds": None}
-        cases.append({"id": case, "index": index, "field": "BrowseComp", "fieldZh": "BrowseComp", "topic": case, "topicZh": case, "question": row['question'], "answer": answer, "answerNote": "运行中" if running else "时长为会话记录窗口", "judge": "DeepSeek Flash · BrowseComp official", "correct": correct, "evaluationStatus": eval_status, "evaluationError": error_text, "judgeStatus": judge.get("status"), "inProgress": running, "interrupted": bool(not active and not result), "rounds": rounds, "durationSeconds": elapsed, "durationText": f"{int(elapsed // 60)}m {int(elapsed % 60)}s", "model": MODEL, "risk": {"level": "unknown", "label": "未审计"}, "riskKey": "not_audited", "stats": stats, "sessionStats": session_stats, "timing": {}, "timingAvailable": timing_available, "domains": [], "steps": steps, "finalAnswer": answer, "keyIndices": [], "sources": []})
+        cases.append({"id": case, "index": index, "field": "BrowseComp", "fieldZh": "BrowseComp", "topic": case, "topicZh": case, "question": row['question'], "answer": answer, "answerNote": "运行中" if running else "时长为会话记录窗口", "judge": "DeepSeek Flash · BrowseComp official", "correct": correct, "evaluationStatus": eval_status, "evaluationError": error_text, "judgeStatus": judge.get("status"), "inProgress": running, "interrupted": eval_status == "interrupted", "rounds": rounds, "durationSeconds": elapsed, "durationText": f"{int(elapsed // 60)}m {int(elapsed % 60)}s", "model": MODEL, "risk": {"level": "unknown", "label": "未审计"}, "riskKey": "not_audited", "stats": stats, "sessionStats": session_stats, "timing": session.get("_viewer_timing", {}), "timingAvailable": timing_available, "domains": [], "steps": steps, "finalAnswer": answer, "keyIndices": [], "sources": []})
     run = {"name": LABEL, "model": MODEL, "benchmark": "BrowseComp · Quest 128", "date": datetime.now().date().isoformat(), "dateShort": datetime.now().date().isoformat(), "totalCases": len(cases), "requestedCases": len(rows), "judgePassed": sum(c['correct'] is True for c in cases), "judgeScored": sum(c['correct'] is not None for c in cases), "rounds": sum(c['rounds'] for c in cases), "toolCalls": sum(sum(c['stats'][k] for k in ('searchCalls','readCalls','computeCalls')) for c in cases), "pagesRead": sum(c['stats']['pagesRead'] for c in cases), "searchQueries": sum(c['stats']['searchQueries'] for c in cases), "searchCalls": sum(c['stats']['searchCalls'] for c in cases), "inProgress": any(c['inProgress'] for c in cases), "wiki": "Quest 27B 选择性难题子集；DeepSeek Flash 判分；未审计的轨迹不标记为安全。"}
     counts = Counter(c['evaluationStatus'] for c in cases)
     run['statusCounts'] = dict(counts)
-    run['errorCount'] = sum(counts[x] for x in ('inference_error', 'tool_error', 'judge_error', 'interrupted', 'user_terminated'))
+    run['errorCount'] = sum(counts[x] for x in ('inference_error', 'tool_error', 'judge_error', 'user_terminated'))
     run['roundLimitCount'] = counts['round_limit']
     run['userTerminatedCount'] = counts['user_terminated']
     run['unsuccessfulCount'] = counts['incorrect'] + counts['user_terminated']

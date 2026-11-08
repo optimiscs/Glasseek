@@ -10,6 +10,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'Evaluation_backend
 from tools.quest_page_retrieval import select_pages
 
 class QuestPageRetrievalTest(unittest.IsolatedAsyncioTestCase):
+    async def test_explicit_goal_overrides_global_question(self):
+        seen=[]
+        def handler(request):
+            seen.append(json.loads(request.content))
+            return httpx.Response(200, json={'content':'Evidence', 'audit':{}})
+        real=httpx.AsyncClient
+        with patch.dict(os.environ, {'BROWSE_COMP_QUESTION':'Global task', 'GLASSEEK_QUEST_RETRIEVAL_URL':'http://selector'}), \
+             patch('tools.quest_page_retrieval.httpx.AsyncClient', side_effect=lambda **kw:real(transport=httpx.MockTransport(handler), **kw)):
+            result=await select_pages([{'url':'https://example.org', 'content':'Source'}], goal='Specific child task')
+        self.assertEqual(seen[0]['goal'],'Specific child task')
+        self.assertEqual(result[0]['retrieval']['goal_source'],'tool_goal')
+
     async def test_selected_evidence_replaces_raw(self):
         seen = []
         def handler(request):

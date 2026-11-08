@@ -1,0 +1,20 @@
+{
+  "serper": {
+    "module": "serper_proxy",
+    "config": "search_pool.json",
+    "config_env": "GLASSEEK_SEARCH_POOL_CONFIG",
+    "format": "legacy-search",
+    "name": "search",
+    "key_field": "serper"
+  },
+  "jina": {
+    "module": "jina_fetch",
+    "config": "fetch_pool.json",
+    "config_env": "GLASSEEK_FETCH_POOL_CONFIG",
+    "format": "pool",
+    "name": "fetch",
+    "key_field": "jina",
+    "routing_env": "GLASSEEK_FETCH_URL",
+    "requires_dns_safety": true
+  }
+}

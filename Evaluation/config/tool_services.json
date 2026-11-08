@@ -1,0 +1,16 @@
+{
+  "host": "127.0.0.1",
+  "fetch_port": 18081,
+  "bm25_port": 18215,
+  "bm25_workers": 4,
+  "bm25_queue_limit": 16,
+  "embedding_port": 18213,
+  "embedding_upstream_port": 18218,
+  "embedding_model": "QWEN3-EMBEDDING-8B",
+  "bridge_port": 18217,
+  "retrieval_candidates": 64,
+  "retrieval_top_k": 16,
+  "retrieval_concurrency": 4,
+  "retrieval_timeout": 180,
+  "proxy_url": "http://127.0.0.1:18200"
+}

@@ -84,6 +84,13 @@ def load_custom_system_prompt(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Standalone parallel Hermes runner for Browse Comp evals")
+    from glasseek_shared.context.config import add_arguments
+    add_arguments(parser)
+    parser.add_argument('--viewer', action=argparse.BooleanOptionalAction,
+                        default=os.getenv('GLASSEEK_VIEWER_ENABLED', '1').lower() not in ('0', 'false', 'off'),
+                        help='Automatically publish live trajectories (default: enabled)')
+    parser.add_argument('--viewer-interval', type=_positive_float,
+                        default=float(os.getenv('GLASSEEK_VIEWER_INTERVAL', '20')))
     parser.add_argument("--dataset", required=True, help="Dataset name used for data/output organization")
     parser.add_argument("--data-path", help="JSONL or JSON data file. Defaults to data/{dataset}/questions.jsonl")
     parser.add_argument("--limit", type=int, help="Only run the first N loaded questions")
@@ -322,6 +329,8 @@ def merge_stats(total: dict[str, int], batch: dict[str, int]) -> dict[str, int]:
 def main(argv: list[str] | None = None) -> int:
     argv_tokens = list(sys.argv[1:] if argv is None else argv)
     args = build_parser().parse_args(argv_tokens)
+    from glasseek_shared.context.config import configure
+    configure(args)
     if not math.isfinite(args.compression_threshold) or not 0 < args.compression_threshold <= 1:
         print("--compression-threshold must be greater than 0 and at most 1", file=sys.stderr)
         return 2
@@ -427,6 +436,8 @@ def main(argv: list[str] | None = None) -> int:
     toolsets = validate_tool_whitelist(parse_csv(args.tool_whitelist))
     skills = normalize_skill_whitelist(parse_csv(args.skill_whitelist))
     allowed_tools = resolve_toolsets(toolsets)
+    if args.context_manager == "clm" and allowed_tools:
+        allowed_tools.add("bash")
     skip_statuses = set(parse_csv(args.skip_statuses))
 
     api_key_envs = parse_csv(args.api_key_envs)
@@ -872,6 +883,10 @@ def main(argv: list[str] | None = None) -> int:
         if callable(ags_close_all):
             ags_close_all()
     previous_handlers = _install_ags_signal_handlers(_stop_inflight)
+    from .viewer import EvaluationViewer
+    viewer = EvaluationViewer(run=save_name, dataset=args.dataset, model=primary_model,
+                              output=output_base, data_path=data_path, count=len(items), workers=num_workers,
+                              enabled=args.viewer, interval=args.viewer_interval).start()
     try:
         if callable(start_watchdog):
             start_watchdog()
@@ -888,6 +903,7 @@ def main(argv: list[str] | None = None) -> int:
         interrupted = True
         print("interrupted", file=sys.stderr)
     finally:
+        viewer.close()
         if callable(stop_watchdog):
             stop_watchdog()
         if callable(ags_close_all):

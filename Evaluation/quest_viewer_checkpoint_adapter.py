@@ -16,9 +16,10 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from browse_comp_eval.hermes_client import profile_name
+from quest_viewer_timing import restore_session_origin
 
 ROOT = Path(__file__).resolve().parent
-RUNTIME = ROOT / "data/runtime"
+RUNTIME = Path(os.environ.get('GLASSEEK_RUNTIME_DIR', ROOT / "data/runtime"))
 RUN = os.environ.get("GLASSEEK_VIEWER_RUN", "glasseek_sft9b_quest128")
 DATASET = os.environ.get("GLASSEEK_VIEWER_DATASET", "quest_qwen27b_128")
 WORKSPACE = os.environ.get("GLASSEEK_VIEWER_WORKSPACE", "glasseek-sft9b-browsecomp-128")
@@ -105,7 +106,7 @@ def tool_view(name: str, args: dict, output: str):
             requested = [requested]
         return "read", {"name": name, "kind": "read", "goal": "", "pages": pages, "pageCount": len(pages) if output else 0,
                         "singlePageRequest": isinstance(requested, list) and len(requested) == 1}
-    return "compute", {"name": name or "tool", "kind": "compute", "goal": "", "code": str(args.get("code") or ""), "stdout": output, "language": "python" if name == "execute_code" else "text"}
+    return "compute", {"name": name or "tool", "kind": "compute", "goal": "", "code": str(args.get("command") or args.get("code") or ""), "stdout": output, "language": "python" if name == "execute_code" else "text"}
 
 
 def build_steps(messages):
@@ -166,6 +167,7 @@ def merge_session_chain(snapshots):
         current = by_id.get(current.get('parent_session_id'))
     chain.reverse()
     merged = dict(chain[-1])
+    merged['_viewer_session_ids'] = [s['session_id'] for s in chain if s.get('session_id')]
     merged['session_start'] = chain[0].get('session_start') or merged.get('session_start')
     merged['messages'] = [{**m, '_viewer_session_id': session.get('session_id', '')} for i, session in enumerate(chain)
                           for m in session.get('messages', [])
@@ -184,6 +186,7 @@ def unwrap_tool_output(text):
 
 def enrich_timing(session, steps, db_path, log_path):
     """Use only uniquely matched recorded spans; return False on ambiguity."""
+    restore_session_origin(session, db_path)
     if not steps or not db_path.is_file() or not log_path.is_file():
         return False
     try:
@@ -379,11 +382,15 @@ def find_profile(run, case, session, result, profiles_dir):
 
 
 def build_package():
-    rows = [json.loads(line) for line in (RUNTIME / f"{DATASET}.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+    data_path = Path(os.environ.get('GLASSEEK_VIEWER_DATA_PATH', RUNTIME / f"{DATASET}.jsonl"))
+    from browse_comp_eval.dataset import load_dataset
+    rows = [{'id': item.question_id, 'question': item.question} for item in load_dataset(data_path)]
+    limit = int(os.environ.get('GLASSEEK_VIEWER_LIMIT', '0'))
+    if limit > 0:rows = rows[:limit]
     sessions = RUNTIME / "hermes/sessions" / RUN / DATASET
-    output = ROOT / "output/preds" / RUN / DATASET
+    output = Path(os.environ.get('GLASSEEK_VIEWER_OUTPUT_DIR', ROOT / "output/preds" / RUN / DATASET))
     results = {}
-    for path in (output / "conv").glob("*/*.json"):
+    for path in (output / "conv").rglob("*.json"):
         item = read_json(path)
         if isinstance(item, dict) and item.get("question_id"):
             results[str(item["question_id"])] = item
@@ -419,13 +426,20 @@ def build_package():
         steps = build_steps(session.get("messages", []))
         profile = find_profile(RUN, case, session, result, RUNTIME / 'hermes/profiles')
         timing_available = enrich_timing(session, steps, profile / 'state.db', profile / 'logs/agent.log')
+        from quest_viewer_timing import apply_message_timings
+        timing_available = apply_message_timings(session, steps, profile/'state.db') or timing_available
         session_stats = session_statistics(session, profile / 'logs/agent.log', profile / 'config.yaml', steps)
+        from quest_viewer_timing import request_context_stats
+        _request_context = request_context_stats(session, profile/'state.db')
+        if _request_context:
+            session_stats.setdefault('context', {}).update(_request_context)
         rounds = sum(1 for m in session.get('messages', []) if m.get('role') == 'assistant' and (m.get('tool_calls') or m.get('reasoning') or m.get('reasoning_content') or m.get('content')))
         counts = Counter(s["kind"] for s in steps if s["tool"])
         judge = judges.get(case) or {}
         score = judge.get("score") if judge.get("status") == "judged" else None
         correct = bool(score) if isinstance(score, (int, float)) else None
-        running = bool(active and profile.name in active_profiles and
+        from quest_viewer_timing import producer_alive
+        running = bool(active and (profile.name in active_profiles or producer_alive(session) or session.get('_official_clm_active')) and
                        (not result or result.get('status') == 'interrupted' or result.get('attempt_consumed') is False))
         error_text = str((result or {}).get("error") or "")
         tails = " ".join(str((result or {}).get(k) or "") for k in ("stdout_tail", "stderr_tail", "agent_log_tail"))
@@ -434,7 +448,7 @@ def build_package():
             eval_status = "tool_budget_exceeded"
         elif running:
             eval_status = "running"
-        elif not result:
+        elif not result or result.get("status") == "interrupted":
             eval_status = "interrupted"
         elif result.get("user_terminated"):
             eval_status = "user_terminated"
@@ -451,11 +465,11 @@ def build_package():
         elapsed = duration(session)
         answer = str((result or {}).get("model_response") or "")
         stats = {"steps": len(steps), "searchCalls": counts['search'], "readCalls": counts['read'], "computeCalls": counts['compute'], "searchQueries": counts['search'], "resultsScanned": sum(s['tool'].get('resultCount', 0) for s in steps if s['tool']), "pagesRead": sum(s['tool'].get('pageCount', 0) for s in steps if s['tool']), "uniqueSources": 0, "uniqueDomains": 0, "averageStepSeconds": None, "longestStepSeconds": None}
-        cases.append({"id": case, "index": index, "field": "BrowseComp", "fieldZh": "BrowseComp", "topic": case, "topicZh": case, "question": row['question'], "answer": answer, "answerNote": "运行中" if running else "时长为会话记录窗口", "judge": "DeepSeek Flash · BrowseComp official", "correct": correct, "evaluationStatus": eval_status, "evaluationError": error_text, "judgeStatus": judge.get("status"), "inProgress": running, "interrupted": bool(not active and not result), "rounds": rounds, "durationSeconds": elapsed, "durationText": f"{int(elapsed // 60)}m {int(elapsed % 60)}s", "model": MODEL, "risk": {"level": "unknown", "label": "未审计"}, "riskKey": "not_audited", "stats": stats, "sessionStats": session_stats, "timing": {}, "timingAvailable": timing_available, "domains": [], "steps": steps, "finalAnswer": answer, "keyIndices": [], "sources": []})
-    run = {"name": LABEL, "model": MODEL, "benchmark": "BrowseComp · Quest 128", "date": datetime.now().date().isoformat(), "dateShort": datetime.now().date().isoformat(), "totalCases": len(cases), "requestedCases": len(rows), "judgePassed": sum(c['correct'] is True for c in cases), "judgeScored": sum(c['correct'] is not None for c in cases), "rounds": sum(c['rounds'] for c in cases), "toolCalls": sum(sum(c['stats'][k] for k in ('searchCalls','readCalls','computeCalls')) for c in cases), "pagesRead": sum(c['stats']['pagesRead'] for c in cases), "searchQueries": sum(c['stats']['searchQueries'] for c in cases), "searchCalls": sum(c['stats']['searchCalls'] for c in cases), "inProgress": any(c['inProgress'] for c in cases), "wiki": "Quest 27B 选择性难题子集；DeepSeek Flash 判分；未审计的轨迹不标记为安全。"}
+        cases.append({"id": case, "index": index, "field": "BrowseComp", "fieldZh": "BrowseComp", "topic": case, "topicZh": case, "question": row['question'], "answer": answer, "answerNote": "运行中" if running else "时长为会话记录窗口", "judge": "DeepSeek Flash · BrowseComp official", "correct": correct, "evaluationStatus": eval_status, "evaluationError": error_text, "judgeStatus": judge.get("status"), "inProgress": running, "interrupted": eval_status == "interrupted", "rounds": rounds, "durationSeconds": elapsed, "durationText": f"{int(elapsed // 60)}m {int(elapsed % 60)}s", "model": MODEL, "risk": {"level": "unknown", "label": "未审计"}, "riskKey": "not_audited", "stats": stats, "sessionStats": session_stats, "timing": session.get("_viewer_timing", {}), "timingAvailable": timing_available, "domains": [], "steps": steps, "finalAnswer": answer, "keyIndices": [], "sources": []})
+    run = {"name": LABEL, "model": MODEL, "benchmark": f"{DATASET} · {len(rows)} 题", "date": datetime.now().date().isoformat(), "dateShort": datetime.now().date().isoformat(), "totalCases": len(cases), "requestedCases": len(rows), "judgePassed": sum(c['correct'] is True for c in cases), "judgeScored": sum(c['correct'] is not None for c in cases), "rounds": sum(c['rounds'] for c in cases), "toolCalls": sum(sum(c['stats'][k] for k in ('searchCalls','readCalls','computeCalls')) for c in cases), "pagesRead": sum(c['stats']['pagesRead'] for c in cases), "searchQueries": sum(c['stats']['searchQueries'] for c in cases), "searchCalls": sum(c['stats']['searchCalls'] for c in cases), "inProgress": any(c['inProgress'] for c in cases), "wiki": "Quest 27B 选择性难题子集；DeepSeek Flash 判分；未审计的轨迹不标记为安全。"}
     counts = Counter(c['evaluationStatus'] for c in cases)
     run['statusCounts'] = dict(counts)
-    run['errorCount'] = sum(counts[x] for x in ('inference_error', 'tool_error', 'judge_error', 'interrupted', 'user_terminated'))
+    run['errorCount'] = sum(counts[x] for x in ('inference_error', 'tool_error', 'judge_error', 'user_terminated'))
     run['roundLimitCount'] = counts['round_limit']
     run['userTerminatedCount'] = counts['user_terminated']
     run['unsuccessfulCount'] = counts['incorrect'] + counts['user_terminated']
