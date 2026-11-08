@@ -1,4 +1,7 @@
 """Launch CM-GSPO using verl 0.9.1's supported custom TaskRunner hook."""
+import os
+import sys
+import argparse
 import hydra
 import ray
 from omegaconf import OmegaConf
@@ -13,6 +16,7 @@ from verl.utils.dataset.rl_dataset import collate_fn
 
 from .trainer import CMTrainer
 from .validation import validate_cm_config, require_verl_version, validate_environment
+from .web_tools import search_pool_worker_env
 
 
 class CMTaskRunner(BaseTaskRunner):
@@ -46,8 +50,21 @@ def main(config):
     require_verl_version()
     validate_cm_config(config)
     validate_environment(config)
+    OmegaConf.update(config, 'ray_kwargs.ray_init.runtime_env.env_vars',
+                     dict(search_pool_worker_env(), **{k:v for k,v in os.environ.items()
+                         if k.startswith("GLASSEEK_CONTEXT_MANAGER")}), merge=True, force_add=True)
     run_ppo(config, task_runner_class=ray.remote(num_cpus=1)(CMTaskRunner))
 
 
 if __name__ == "__main__":
+    from glasseek_shared.hermes.url_registry import add_url_argument
+    parser = argparse.ArgumentParser(add_help=False)
+    add_url_argument(parser)
+    from glasseek_shared.context.config import add_arguments, configure
+    add_arguments(parser)
+    args, remaining = parser.parse_known_args()
+    from glasseek_shared.hermes.url_prompt import configure_url_arguments
+    configure_url_arguments(args)
+    configure(args)
+    sys.argv = [sys.argv[0]] + remaining
     main()

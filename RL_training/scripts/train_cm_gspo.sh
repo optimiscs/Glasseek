@@ -2,6 +2,7 @@
 set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$ROOT"
+source "$ROOT/Evaluation/services/search_pool_env.sh"
 export PYTHONPATH="$ROOT/RL_training${PYTHONPATH:+:$PYTHONPATH}"
 export GLASSEEK_AGENT_CONFIG="$ROOT/RL_training/configs/agent_loop.yaml"
 : "${MODEL_PATH:?Set MODEL_PATH to the exported SFT checkpoint}"

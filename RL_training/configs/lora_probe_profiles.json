@@ -1,0 +1,25 @@
+{
+  "defaults": {
+    "model_path": "/root/autodl-tmp/models/Qwen3.5-9B",
+    "max_length": 327680,
+    "truncation": "error",
+    "activation_offload": false,
+    "lora_rank": 16,
+    "lora_alpha": 32,
+    "lr": 2e-05,
+    "weight_decay": 0.01
+  },
+  "profiles": {
+    "pro6000": {},
+    "128k": {
+      "max_length": 131072,
+      "truncation": "right"
+    },
+    "offload": {
+      "activation_offload": true
+    },
+    "ddp": {
+      "max_length": 262144
+    }
+  }
+}
