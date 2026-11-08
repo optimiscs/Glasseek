@@ -1,0 +1,88 @@
+{
+  "version": "trajectory-preprocess-2",
+  "providers": {
+    "default": {
+      "url": "https://api.deepseek.com/v1",
+      "key": "${DEEPSEEK_API_KEY}",
+      "model": "auto",
+      "preferred_models": [
+        "deepseek-flash"
+      ],
+      "timeout_seconds": 300,
+      "trust_env": false,
+      "extra_body_by_host": {
+        "api.deepseek.com": {
+          "thinking": {
+            "type": "disabled"
+          },
+          "response_format": {
+            "type": "json_object"
+          }
+        }
+      },
+      "max_concurrent_requests": 4,
+      "transport_attempts": 4
+    }
+  },
+  "stages": {
+    "inventory": {
+      "provider": "default"
+    },
+    "audit": {
+      "provider": "default"
+    },
+    "review": {
+      "provider": "default"
+    },
+    "behaviors": {
+      "provider": "default"
+    },
+    "rewrite": {
+      "provider": "default"
+    },
+    "counterfactual": {
+      "provider": "default"
+    },
+    "counterfactual_review": {
+      "provider": "default"
+    },
+    "safety_review": {
+      "provider": "default"
+    },
+    "safety_verify": {
+      "provider": "default"
+    }
+  },
+  "generation": {
+    "temperature": 0,
+    "max_tokens": 16384,
+    "attempts": 2
+  },
+  "execution": {
+    "workers": 16,
+    "max_sample_chars": 250000,
+    "max_batch_samples": 36
+  },
+  "dedup": {
+    "near_question_hamming_distance": 3,
+    "max_bucket_candidates": 200
+  },
+  "harness": {
+    "search_name": "web_search",
+    "extract_name": "web_extract",
+    "extract_max_urls": 5
+  },
+  "inputs": [
+    {
+      "path": "reports/trajectory-pilot-v2-20261107/samples.json",
+      "source": "pilot",
+      "adapter": "canonical"
+    }
+  ],
+  "policy_version": "evidence-id-v4",
+  "sampling": {
+    "per_dataset": 4,
+    "datasets": 9,
+    "max_batch_samples": 36
+  }
+}

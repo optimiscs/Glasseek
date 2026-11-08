@@ -7,8 +7,11 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-async def select_pages(results):
-    goal = os.environ.get('BROWSE_COMP_QUESTION', '').strip()
+async def select_pages(results, goal=""):
+    if not isinstance(goal, str):
+        raise ValueError('goal must be a string')
+    goal_source = 'tool_goal' if goal.strip() else 'user_question'
+    goal = goal if goal.strip() else os.environ.get('BROWSE_COMP_QUESTION', '').strip()
     endpoint = os.environ.get('GLASSEEK_QUEST_RETRIEVAL_URL', '').rstrip('/')
     if not goal or not endpoint:
         raise ValueError('Quest retrieval requires a question and service URL')
@@ -42,7 +45,7 @@ async def select_pages(results):
                                        'selected_indices': audit.get('selected_indices'),
                                        'stage_seconds': audit.get('stage_seconds'),
                                        'total_seconds': audit.get('total_seconds'),
-                                       'goal_source': 'user_question'}
+                                       'goal_source': goal_source}
             except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
                 logger.warning('quest page retrieval failed url=%s error=%s', result.get('url', ''), type(exc).__name__)
                 result['content'] = ''

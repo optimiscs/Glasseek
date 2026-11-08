@@ -1,0 +1,10 @@
+[
+  {"path":"data/DeepForge/deepforge-sft.jsonl","source":"DeepForge","adapter":"auto"},
+  {"path":"data/OpenSeeker-v1-Data/openseeker_v1_data.jsonl","source":"OpenSeeker","adapter":"auto"},
+  {"path":"data/LiteResearcher-SFT-Data/data/*.parquet","source":"LiteResearcher","adapter":"auto"},
+  {"path":"data/REDSearcher_SFT_10K/data/*.parquet","source":"REDSearcher","adapter":"auto"},
+  {"path":"data/QUEST-SFT-Data-Objective/data/*.parquet","source":"QUEST-Objective","adapter":"auto"},
+  {"path":"data/QUEST-SFT-Data-Open-ended/data/*.parquet","source":"QUEST-Open-ended","adapter":"auto"},
+  {"path":"data/SearchSwarm-SFT/train.parquet","source":"SearchSwarm","adapter":"auto"},
+  {"path":"data/Glasseek-SFT-5.7K/train.jsonl","source":"Glasseek","adapter":"auto"}
+]

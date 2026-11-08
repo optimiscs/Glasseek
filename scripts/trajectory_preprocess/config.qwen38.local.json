@@ -1,0 +1,87 @@
+{
+  "version": "trajectory-preprocess-1-qwen38-medium",
+  "providers": {
+    "default": {
+      "url": "http://127.0.0.1:19227/v1",
+      "key": "",
+      "model": "auto",
+      "preferred_models": [
+        "QWEN38-27B-NVFP4"
+      ],
+      "timeout_seconds": 900,
+      "trust_env": false,
+      "extra_body_by_host": {
+        "127.0.0.1": {
+          "reasoning_effort": "medium",
+          "chat_template_kwargs": {
+            "enable_thinking": true,
+            "reasoning_effort": "medium"
+          }
+        }
+      }
+    }
+  },
+  "stages": {
+    "inventory": {
+      "provider": "default"
+    },
+    "audit": {
+      "provider": "default",
+      "generation": {
+        "max_tokens": 32768
+      }
+    },
+    "review": {
+      "provider": "default",
+      "generation": {
+        "max_tokens": 32768
+      }
+    },
+    "behaviors": {
+      "provider": "default",
+      "generation": {
+        "max_tokens": 32768
+      }
+    },
+    "rewrite": {
+      "provider": "default"
+    },
+    "counterfactual": {
+      "provider": "default"
+    },
+    "counterfactual_review": {
+      "provider": "default"
+    },
+    "safety_review": {
+      "provider": "default"
+    },
+    "safety_verify": {
+      "provider": "default"
+    }
+  },
+  "generation": {
+    "temperature": 0,
+    "max_tokens": 16384,
+    "attempts": 2
+  },
+  "execution": {
+    "workers": 16,
+    "max_sample_chars": 250000
+  },
+  "dedup": {
+    "near_question_hamming_distance": 3,
+    "max_bucket_candidates": 200
+  },
+  "harness": {
+    "search_name": "web_search",
+    "extract_name": "web_extract",
+    "extract_max_urls": 5
+  },
+  "inputs": [
+    {
+      "path": "reports/trajectory-pilot-v2-20261107/samples.json",
+      "source": "pilot",
+      "adapter": "canonical"
+    }
+  ]
+}
