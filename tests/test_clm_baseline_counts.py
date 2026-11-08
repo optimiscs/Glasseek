@@ -3,6 +3,10 @@ import importlib.util
 import json
 from pathlib import Path
 import sqlite3
+import sys
+
+ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT/'scripts/trajectory_benchmark'))
 
 spec=importlib.util.spec_from_file_location('clm_baselines',Path(__file__).resolve().parents[1]/'scripts/trajectory_benchmark/compare_clm_to_hermes.py')
 module=importlib.util.module_from_spec(spec)
