@@ -15,9 +15,30 @@ def compressions(path):
         return db.execute("SELECT COUNT(*) FROM sessions WHERE end_reason='compression'").fetchone()[0]
 
 
+def recorded_tools(db):
+    """Count complete execution history, not the post-compression visible tail."""
+    counts=Counter();seen=set();turns=multi=0
+    records=db.execute("SELECT id,tool_calls FROM messages WHERE role='assistant' AND "
+        "COALESCE(inherited_from_previous_session,0)=0 ORDER BY id")
+    for mid,serialized in records:
+        fresh=[]
+        for index,call in enumerate(json.loads(serialized or '[]')):
+            key=call.get('id') or call.get('call_id') or (mid,index)
+            if key in seen:continue
+            seen.add(key);fresh.append(call)
+            counts[(call.get('function') or {}).get('name','unknown')]+=1
+        turns+=bool(fresh);multi+=len(fresh)>1
+    return dict(web_search=counts['web_search'],web_extract=counts['web_extract'],
+        assistant_tool_turns=turns,multi_call_turns=multi,recorded_tool_calls=sum(counts.values()))
+
+
 def freeze_baselines(output):
     destination=output/'no-clm-baselines.json'
-    if destination.exists():return read(destination)
+    if destination.exists() and read(destination).get('tool_count_version')=='native-db-unique-calls-v2':
+        return read(destination)
+    if destination.exists():
+        import shutil
+        shutil.copy2(destination,destination.with_suffix('.before-complete-history.json'))
     source=ROOT/'reports/url-modes-34-20261107/live-v3-full-c8/final-analysis/report.json'
     original=read(source);first=[]
     for r in original['rows']:
@@ -36,13 +57,15 @@ def freeze_baselines(output):
         with sqlite3.connect(f'file:{db_path}?mode=ro',uri=True) as db:
             values=db.execute('SELECT SUM(input_tokens),SUM(output_tokens),SUM(cache_read_tokens),'
                               'SUM(cache_write_tokens),SUM(api_call_count) FROM sessions').fetchone()
+            tools=recorded_tools(db)
         second.append(dict(question_id=case['question_id'],question_sha256=hashlib.sha256(case['question'].encode()).hexdigest(),
             score=judge['score'],input_tokens=sum(values[i] or 0 for i in (0,2,3)),cached=values[2] or 0,
             output_tokens=values[1] or 0,model_calls=values[4] or 0,
-            web_search=case['tool_calls'].get('web_search',0),web_extract=case['tool_calls'].get('web_extract',0),
+            **tools,
             wall_seconds=case['wall_seconds'],context_operations=compressions(db_path),retrieval_errors=None))
     data=dict(first=dict(run='url_34_raw_20261107_170244',rows=first),
-        repeat=dict(run=run,rows=second),source=str(source),source_sha256=hashlib.sha256(source.read_bytes()).hexdigest())
+        repeat=dict(run=run,rows=second),tool_count_version='native-db-unique-calls-v2',
+        source=str(source),source_sha256=hashlib.sha256(source.read_bytes()).hexdigest())
     atomic(destination,data);return data
 
 
@@ -82,6 +105,7 @@ def update(output,baselines):
             'Historical URL modes each used concurrency 2 and shared a max-seqs-8 server; current CLM uses concurrency 12.',
             'The first raw run had a retrieval outage. Counts include only identical, jointly scored tasks.',
             'Hermes allowed parallel native web tools per model response; official CLM uses a single bash action.',
+            'Repeat-baseline tool counts use complete native DB history deduplicated by call ID; prediction tool_calls only described the visible post-compression tail.',
             'Prompt, tool error propagation, web results and load also differ. This is not an isolated causal estimate of context editing.',
             'Traditional summary compressions and CLM mirror edits are different operations.'])
     atomic(output/'comparison-vs-hermes.json',report)
