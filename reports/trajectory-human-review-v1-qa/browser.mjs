@@ -1,0 +1,42 @@
+import {createRequire} from 'node:module';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const require=createRequire('/root/autodl-tmp/Quest/web/frontend/package.json');
+const {chromium}=require('@playwright/test');
+const browser=await chromium.launch({headless:true,executablePath:'/root/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome',args:['--no-sandbox']});
+const page=await browser.newPage({viewport:{width:1500,height:1000}});
+const errors=[];page.on('pageerror',e=>errors.push(e.message));
+const base='http://127.0.0.1:6082';
+try {
+ const list=await (await page.request.get(base+'/api/curation/cases')).json();
+ const item=await (await page.request.get(base+'/api/curation/cases/synthetic-qa-0001')).json();
+ assert.equal(item.automatic,undefined);assert.equal(item.findings,undefined);
+ const before=await (await page.request.get(base+'/api/curation/summary')).json();
+ await page.goto(base+'/curation.html');
+ await page.locator('#caseHeader h1').waitFor();
+ await page.waitForFunction(()=>document.querySelectorAll('.audit-check').length===12);
+ assert.equal(await page.locator('input[type=radio]:checked').count(),0);
+ await page.locator('[data-message="2"] summary').click();
+ await page.waitForFunction(()=>document.querySelector('[data-message="2"] pre').textContent.includes('Recorded year'));
+ assert.equal(await page.locator('.message-detail img').count(),0);
+ await page.screenshot({path:'/root/autodl-tmp/Glasseek/reports/trajectory-human-review-v1-qa/desktop.png'});
+ await page.locator('#reviewer').fill('QA-synthetic');
+ for(const r of list.rubric){const input=page.locator(`input[name="${r.id}"][value="${r.good}"]`);if(!await input.isDisabled())await input.locator('..').click();}
+ await page.locator('[data-evidence="support"]').fill('M3');
+ await page.locator('#confirmed').check();
+ const response=page.waitForResponse(r=>r.url().endsWith('/api/curation/reviews')&&r.request().method()==='POST');
+ await page.locator('#submitReview').click();
+ const res=await response;assert.equal(res.status(),200);const event=await res.json();
+ assert.equal(event.result.score,100);assert.equal(event.result.training_ready,false);assert.equal(event.comparison.disagree,1);assert.equal(event.comparison.uncomparable,10);
+ await page.locator('#comparison h2').waitFor();assert.equal(await page.locator('#comparison h2').textContent(),'1 项判断不同');
+ await page.screenshot({path:'/root/autodl-tmp/Glasseek/reports/trajectory-human-review-v1-qa/comparison.png'});
+ const after=await (await page.request.get(base+'/api/curation/summary')).json();assert.equal(after.submissions,before.submissions+1);
+ const exported=await (await page.request.get(base+'/api/curation/export')).text();assert(exported.includes('QA-synthetic'));
+ const denied=await page.request.post(base+'/api/curation/reviews',{data:{}});assert.equal(denied.status(),403);
+ await page.setViewportSize({width:390,height:844});await page.reload();await page.locator('#caseHeader h1').waitFor();
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+ await page.screenshot({path:'/root/autodl-tmp/Glasseek/reports/trajectory-human-review-v1-qa/mobile.png'});
+ assert.deepEqual(errors,[]);
+ fs.writeFileSync('/root/autodl-tmp/Glasseek/reports/trajectory-human-review-v1-qa/browser-result.json',JSON.stringify({status:'passed',synthetic_only:true,score:event.result.score,comparison:event.comparison,checks:['blind_labels','no_default_answers','escaped_external_html','server_scoring','per_question_comparison','persisted_event_export','cross_origin_write_gate','mobile_layout']},null,2));
+ console.log('browser_qa_passed');
+} finally {await browser.close();}
