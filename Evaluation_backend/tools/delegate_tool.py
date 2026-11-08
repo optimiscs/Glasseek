@@ -2270,6 +2270,9 @@ def _run_single_child(
             except Exception as e:
                 logger.debug("Progress callback completion failed: %s", e)
 
+        if os.environ.get('GLASSEEK_URL_MODE', 'raw') != 'raw':
+            from glasseek_shared.hermes.url_registry import runtime_registry, expand_tree
+            entry = expand_tree(entry, runtime_registry(child.session_id))
         return entry
 
     except Exception as exc:

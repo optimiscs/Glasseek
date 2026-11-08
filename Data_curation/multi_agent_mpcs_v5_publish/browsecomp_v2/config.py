@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
+import sys
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -135,8 +138,19 @@ class WorkflowConfig:
 
 
 def load_config(env_path: str | Path = ".env") -> WorkflowConfig:
+    pool_endpoint = os.environ.get('GLASSEEK_SEARCH_POOL_ENDPOINT')
     load_dotenv(env_path)
+    if pool_endpoint:
+        os.environ['SEARCH_SERVER_ENDPOINT'] = pool_endpoint
     project_root = Path(__file__).resolve().parents[1]
+    pool_cli = project_root.parents[1] / 'Evaluation/services/search_pool.py'
+    if pool_cli.is_file():
+        # Resolve after workflow dotenv: one shared configuration owns routing.
+        pool_env = json.loads(subprocess.check_output(
+            [sys.executable, str(pool_cli), 'env', '--json'], text=True))
+        os.environ.update(pool_env)
+    elif not os.environ.get('GLASSEEK_SEARCH_POOL_ENDPOINT'):
+        raise ValueError('Set GLASSEEK_SEARCH_POOL_ENDPOINT when running outside the Glasseek checkout')
     bundled_hermes = project_root / "hermes"
     bundled_command = bundled_hermes / "hermes"
     hermes_raw = os.environ.get("V2_HERMES_PATH", os.environ.get("HERMES_PATH", "")).strip()

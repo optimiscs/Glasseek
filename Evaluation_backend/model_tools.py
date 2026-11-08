@@ -927,6 +927,14 @@ def handle_function_call(
     function_args = coerce_tool_args(function_name, function_args)
     if not isinstance(function_args, dict):
         function_args = {}
+    if os.environ.get('GLASSEEK_URL_MODE', 'raw') != 'raw':
+        from glasseek_shared.hermes.url_registry import runtime_resolve
+        try:
+            function_args, cached = runtime_resolve(session_id or task_id, function_name, function_args)
+            if cached is not None:
+                return cached
+        except ValueError as exc:
+            return json.dumps({'error': str(exc), 'status': 'url_reference_error'}, ensure_ascii=False)
     _tool_middleware_trace = list(tool_request_middleware_trace or [])
 
     # ── Tool Search bridge dispatch ──────────────────────────────────

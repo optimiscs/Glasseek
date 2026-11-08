@@ -188,6 +188,8 @@ def _get_search_backend() -> str:
     This enables using different providers for search vs extract
     (e.g. SearXNG for search + Firecrawl for extract).
     """
+    if os.environ.get('GLASSEEK_SEARCH_POOL_ENDPOINT'):
+        return 'search_server'
     return _get_capability_backend("search")
 
 

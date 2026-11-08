@@ -409,7 +409,15 @@ _doh_lock = threading.Lock()
 
 
 class DNSVerificationError(RuntimeError):
-    pass
+    code = 'dns_verification_failed'
+
+
+class DNSNotFound(DNSVerificationError):
+    code = 'dns_not_found'
+
+
+class DNSResolutionFailed(DNSVerificationError):
+    code = 'dns_resolution_failed'
 
 
 def _doh_public_addresses(hostname: str) -> list:
@@ -422,6 +430,8 @@ def _doh_public_addresses(hostname: str) -> list:
         if cached and cached[0] > time.monotonic():
             return list(cached[1])
     failures = []
+    nxdomains = 0
+    resolver_failures = 0
     for endpoint in ('https://cloudflare-dns.com/dns-query', 'https://dns.google/resolve'):
         session = requests.Session()
         session.trust_env = False
@@ -435,8 +445,10 @@ def _doh_public_addresses(hostname: str) -> list:
                     headers={'Accept': 'application/dns-json'}, timeout=(3, 5))
                 response.raise_for_status()
                 data = response.json()
+                if data.get('Status') == 3:
+                    raise DNSNotFound('DNS NXDOMAIN: hostname does not exist')
                 if data.get('Status') != 0 or data.get('TC'):
-                    raise DNSVerificationError('DNS returned no usable complete answer')
+                    raise DNSResolutionFailed(f"DNS resolver returned RCODE={data.get('Status')}, truncated={bool(data.get('TC'))}")
                 for record in data.get('Answer', []):
                     if record.get('type') in (1, 28):
                         addresses.append(ipaddress.ip_address(record['data']))
@@ -450,10 +462,16 @@ def _doh_public_addresses(hostname: str) -> list:
                 _doh_cache[cache_key] = (time.monotonic() + ttl, tuple(addresses))
             return addresses
         except (requests.RequestException, ValueError, DNSVerificationError) as exc:
-            failures.append(type(exc).__name__)
+            nxdomains += isinstance(exc, DNSNotFound)
+            resolver_failures += isinstance(exc, DNSResolutionFailed)
+            failures.append(f"{urlparse(endpoint).hostname}: {exc if isinstance(exc, DNSVerificationError) else type(exc).__name__}")
         finally:
             session.close()
-    raise DNSVerificationError('DNS verification unavailable: ' + ', '.join(failures))
+    if nxdomains == 2:
+        raise DNSNotFound('DNS NXDOMAIN: both public resolvers confirm hostname does not exist')
+    if resolver_failures == 2:
+        raise DNSResolutionFailed('DNS resolution failed: ' + '; '.join(failures))
+    raise DNSVerificationError('DNS verification unavailable: ' + '; '.join(failures))
 
 
 def check_external_fetch_url(url: str) -> tuple[bool, str, str]:
@@ -494,7 +512,7 @@ def check_external_fetch_url(url: str) -> tuple[bool, str, str]:
             return False, 'private_address', 'Blocked: independently verified DNS contains a private address'
         return True, '', ''
     except DNSVerificationError as exc:
-        return False, 'dns_verification_failed', str(exc)
+        return False, exc.code, str(exc)
     except Exception as exc:
         logger.warning('External fetch DNS verification failed: %s', type(exc).__name__)
         return False, 'dns_verification_failed', 'DNS verification failed: ' + type(exc).__name__
@@ -509,4 +527,17 @@ async def async_is_safe_external_fetch_url(url: str) -> bool:
 
 
 async def async_check_external_fetch_url(url: str) -> tuple[bool, str, str]:
+    endpoint = os.getenv('GLASSEEK_FETCH_SAFETY_URL')
+    if endpoint:
+        import httpx
+        try:
+            async with httpx.AsyncClient(trust_env=False, timeout=60) as client:
+                response = await client.post(endpoint, json={'url': url})
+                response.raise_for_status()
+                result = response.json()
+                if result.get('safe') is True:
+                    return True, '', ''
+                return False, result.get('error_code', 'dns_verification_failed'), result.get('error', 'DNS verification failed')
+        except Exception as exc:
+            return False, 'dns_verification_failed', 'Central DNS verification unavailable: ' + type(exc).__name__
     return await asyncio.to_thread(check_external_fetch_url, url)

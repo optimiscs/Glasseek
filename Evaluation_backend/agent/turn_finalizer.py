@@ -425,4 +425,12 @@ def finalize_turn(
     except Exception as exc:
         logger.warning("on_session_end hook failed: %s", exc)
 
+    if os.environ.get('GLASSEEK_URL_MODE', 'raw') != 'raw':
+        from glasseek_shared.hermes.url_registry import runtime_registry, persist, VERSION
+        registry = runtime_registry(agent.session_id)
+        persist(registry)
+        result['url_protocol'] = {'mode': registry.mode, 'version': VERSION,
+                                  'state_path': str(registry.state_path)}
+        from glasseek_shared.hermes.url_prompt import prompt_module
+        result['url_protocol']['prompt'] = {k: v for k, v in prompt_module().items() if k != 'text'}
     return result

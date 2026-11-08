@@ -202,6 +202,11 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
     ):
         stable_parts.append(SEARCH_CITATION_GUIDANCE)
 
+    from glasseek_shared.hermes.url_prompt import prompt_module
+    url_prompt = prompt_module()
+    if url_prompt['enabled']:
+        stable_parts.append(url_prompt['text'])
+
     # Tool-aware behavioral guidance: only inject when the tools are loaded
     tool_guidance = []
     if "memory" in agent.valid_tool_names:

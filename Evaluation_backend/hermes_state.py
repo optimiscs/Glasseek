@@ -548,6 +548,27 @@ CREATE TABLE IF NOT EXISTS sessions (
     FOREIGN KEY (parent_session_id) REFERENCES sessions(id)
 );
 
+CREATE TABLE IF NOT EXISTS request_contexts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    recorded_at REAL NOT NULL,
+    messages_json TEXT NOT NULL,
+    tools_json TEXT,
+    context_json TEXT NOT NULL,
+    provenance TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS request_contexts_session ON request_contexts(session_id, id);
+
+CREATE TABLE IF NOT EXISTS message_timings (
+    message_id INTEGER NOT NULL,
+    phase TEXT NOT NULL CHECK(phase IN ('model', 'tool')),
+    duration_seconds REAL NOT NULL CHECK(duration_seconds >= 0),
+    started_at REAL,
+    ended_at REAL,
+    provenance TEXT NOT NULL,
+    PRIMARY KEY (message_id, phase)
+);
+
 CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id TEXT NOT NULL REFERENCES sessions(id),
@@ -2477,6 +2498,39 @@ class SessionDB:
                 )
                 return content
         return content
+
+    def record_request_context(self, session_id, messages, tools, *, prompt_tokens=None, capacity_tokens=None, provenance='request'):
+        from agent.context_recording import breakdown
+        context=breakdown(messages,tools)
+        if provenance=='transcript_estimate' and not any(m.get('role') in ('system','developer') for m in messages):
+            context.pop('systemTokens',None)
+        if prompt_tokens is not None:context['usedTokens']=prompt_tokens
+        if capacity_tokens is not None:context['capacityTokens']=capacity_tokens
+        def write(conn):
+            cursor=conn.execute('INSERT INTO request_contexts(session_id,recorded_at,messages_json,tools_json,context_json,provenance) VALUES (?,?,?,?,?,?)',
+                (session_id,time.time(),json.dumps(messages,ensure_ascii=False),json.dumps(tools,ensure_ascii=False) if tools is not None else None,json.dumps(context),provenance))
+            return cursor.lastrowid
+        return self._execute_write(write)
+
+    def complete_request_context(self, request_id, prompt_tokens):
+        def write(conn):
+            row=conn.execute('SELECT context_json FROM request_contexts WHERE id=?',(request_id,)).fetchone()
+            if row:
+                context=json.loads(row[0]);context['usedTokens']=prompt_tokens
+                conn.execute('UPDATE request_contexts SET context_json=? WHERE id=?',(json.dumps(context),request_id))
+        self._execute_write(write)
+
+    def record_message_timing(self, message_id, phase, duration_seconds, *, started_at=None, ended_at=None, provenance='measured'):
+        """Native duration record; legacy imports may lack wall-clock anchors."""
+        import math
+        if phase not in ('model', 'tool') or not math.isfinite(duration_seconds) or duration_seconds < 0:
+            raise ValueError('Invalid timing record')
+        if (started_at is None) != (ended_at is None):
+            raise ValueError('Both wall-clock anchors must be present or absent')
+        def write(conn):
+            conn.execute('INSERT OR IGNORE INTO message_timings VALUES (?,?,?,?,?,?)',
+                         (message_id, phase, duration_seconds, started_at, ended_at, provenance))
+        self._execute_write(write)
 
     def append_message(
         self,

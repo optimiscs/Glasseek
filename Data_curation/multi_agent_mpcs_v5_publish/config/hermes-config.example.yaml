@@ -6,10 +6,9 @@ model:
   base_url: "${DEFAULT_BASE_URL}"
   api_key: "${DEFAULT_API_KEY}"
 
-# Portable default supported by the bundled provider; configure TAVILY_API_KEY
-# in .hermes/.env. To use your own services, see the separate server example.
+# Search credentials and concurrency belong to the shared Glasseek pool.
 web:
-  search_backend: tavily
+  search_backend: search_server
   extract_backend: tavily
 
 terminal:

@@ -69,13 +69,15 @@ The default Solver toolset includes `vision`. If the default model does not supp
 
 Values in the workflow's `.env_v5` override process environment variables with the same names. Its simple parser **does not support inline comments, `export KEY=...`, variable interpolation, or general `~` expansion**. Put comments on separate lines. Hermes YAML supports `${VARIABLE}`; the examples use this syntax to reference model settings loaded by the workflow without duplicating credentials.
 
-### Option A: Public service adapter
+Search routing is an exception: the shared endpoint selected before launch is retained across workflow and Hermes dotenv reloads.
 
-The default `.hermes/config.yaml` selects the bundled Tavily adapter for search and page extraction. Set your own `TAVILY_API_KEY` in `.hermes/.env`. This adapter uses an HTTP client included in the Hermes core dependencies.
+### Shared search service
 
-### Option B: Your own search and fetch services
+Search uses the same pool as training and evaluation. Start it using the [shared search pool instructions](../../Evaluation/services/README.search-pool.md). `start_v5p1.sh` and the workflow configuration loader select the central endpoint; a stale Hermes profile cannot redirect searches to a different provider. Upstream Serper keys stay in the pool service. The example still uses Tavily for page extraction, so configure `TAVILY_API_KEY` for extraction or use a fetch service below.
 
-The original experiments used separate `search_server` and `fetch_server` services. If you have compatible services, replace the `web` section in `.hermes/config.yaml` with the one from `config/hermes-web-services.example.yaml`, fill in your service URLs, and configure the corresponding credentials in `.hermes/.env`. Server implementations are not bundled. See the client implementations for the expected protocols:
+### Fetch service and remote search endpoint
+
+To use a fetch service, replace the `web` section with `config/hermes-web-services.example.yaml` and configure its URL and credentials. To reach a shared search pool on another host, set `SEARCH_SERVER_ENDPOINT` before launch. A standalone copy outside the Glasseek repository must set `GLASSEEK_SEARCH_POOL_ENDPOINT` explicitly and run its Python workflow entry point. See the client implementations for the expected protocols:
 
 - `hermes/plugins/web/search_server/provider.py`
 - `hermes/plugins/web/fetch_server/provider.py`
