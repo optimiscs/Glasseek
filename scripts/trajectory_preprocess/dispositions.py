@@ -4,13 +4,17 @@
 def categorize(reasons, error=''):
     categories = set()
     for reason in reasons:
-        if reason.startswith(('unsupported_tool:', 'tool_runtime:')):
+        if reason.startswith('code_dependency.'):
+            categories.add('dependency_review')
+        elif reason.startswith(('unsupported_tool:', 'tool_runtime:')):
             categories.add('unsupported_tools')
         elif reason.startswith('tool_schema:'):
             categories.add('format_review')
         elif reason == 'annotation_size_budget_exceeded':
             categories.add('length_budget')
         elif reason == 'hierarchical_bundle_adapter_required':
+            categories.add('adapter_holds')
+        elif reason in ('search_query_batch_limit_requires_explicit_split','extract_url_batch_limit_requires_explicit_split'):
             categories.add('adapter_holds')
         elif reason in ('missing_final_answer', 'missing_observation', 'unanswered_user_message'):
             categories.add('incomplete_episodes')

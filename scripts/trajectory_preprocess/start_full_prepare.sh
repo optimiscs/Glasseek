@@ -20,7 +20,7 @@ if ! flock -n 9; then
 fi
 nohup setsid bash -c '
     "$1" -u "$2/full_prepare.py" --output "$3" --workers "$4" &&
-    "$1" -u "$2/../trajectory_benchmark/audit_glasseek_contract.py" --output "$3"
+    "$1" -u "$2/audit_glasseek_contract.py" --output "$3"
 ' _ "$PYTHON" "$SCRIPT_DIR" "$OUT" "$WORKERS" >>"$OUT/run.log" 2>&1 < /dev/null &
 pid=$!
 echo "$pid" > "$OUT/run.pid"

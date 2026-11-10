@@ -1,6 +1,8 @@
 """Format-based message adaptation. No dataset names, task answers or entity rules."""
 import json
 from tool_xml import normalize_text, serialize
+from glasseek_shared.historical_tools import response_fragments, response_hints, compatible, unique_matching, canonical_tool
+from glasseek_shared.hermes.qwen_xml_protocol import strip_batch_wrappers,VERSION as FORMAT_VERSION
 
 
 class AdapterUnsupported(ValueError):
@@ -59,6 +61,8 @@ def conversation(row):
                                  'source_message_index': index,
                                  'structured_metadata': raw_content if isinstance(raw_content, list) else None})
         elif role == 'assistant':
+            framed_text,framing_events=strip_batch_wrappers(text)
+            source_assistant=text;text=framed_text
             recipient = message.get('recipient')
             native = message.get('tool_calls')
             original_payload = None
@@ -91,6 +95,8 @@ def conversation(row):
                 step['source_tool_payload'] = original_payload
             # Source indices are positional metadata, not used in semantic hashes.
             step['source_message_index'] = index
+            if framing_events:
+                step['tool_format_provenance']={'version':FORMAT_VERSION,'original_content':source_assistant,'events':framing_events}
             steps.append(step)
             for ci, call in enumerate(calls):
                 c = native[ci] if native else {}
@@ -105,53 +111,56 @@ def conversation(row):
                         errors.append('duplicate_tool_call_id')
                     call_ids[cid] = (step, ci, link)
         elif role == 'tool' or (role == 'user' and text.lstrip().startswith('<tool_response>')):
-            # Qwen may put a genuine user reminder after the response envelope.
-            # Its explicit closing delimiter gives a deterministic boundary;
-            # preserve the suffix as task context, not retrieved evidence.
-            response_end = len(text)
-            if role == 'user' and text.count('<tool_response>') == 1 and text.count('</tool_response>') == 1:
-                response_end = text.index('</tool_response>') + len('</tool_response>')
-                suffix = text[response_end:]
+            responses=[]
+            try:
+                fragments, suffix, suffix_start = response_fragments(text) if text.lstrip().startswith('<tool_response>') else ([(0,len(text),text)],'',len(text))
+                if not fragments:
+                    raise ValueError('response_envelope_missing')
                 if suffix.strip():
-                    contexts.append({'role': 'user', 'content': suffix, 'before_step': len(steps)+1,
-                                     'source_message_index': index, 'source_content_start': response_end,
-                                     'source_content_end': len(text)})
-                text = text[:response_end]
-            cid = message.get('tool_call_id', message.get('response_to'))
-            response = {'content': text, 'response_to': cid, 'source_role': message.get('role', message.get('from')),
-                        'source_message_index': index, 'source_channel': message.get('channel'),
-                        'source_content_start': 0, 'source_content_end': response_end}
-            name = message.get('name')
-            if cid:
-                found = call_ids.get(cid)
-                if found is None or cid in answered_ids:
-                    errors.append('unmatched_tool_response_id')
-                    unassigned.append(response)
-                    continue
-            else:
-                candidates = [(s, ci, link) for s, ci, link in pending
-                              if (not link['call_id'] or link['call_id'] not in answered_ids)
-                              and (not name or name.casefold() == s['calls'][ci]['name'].casefold())]
-                if len(candidates) != 1:
-                    errors.append('ambiguous_tool_response' if candidates else 'orphan_tool_observation')
-                    unassigned.append(response)
-                    continue
-                found = candidates[0]
-            target, ci, link = found
-            if name and name.casefold() != target['calls'][ci]['name'].casefold():
-                errors.append('tool_response_name_mismatch')
-            if not link['call_id']:
-                generated = f"generated:m{link['source_message_index']}:c{ci}"
-                while generated in reserved_ids:
-                    generated += ':generated'
-                reserved_ids.add(generated)
-                link['call_id'] = generated
-                link['id_origin'] = 'unique_response_association'
-                call_ids[generated] = found
-            response['response_to'] = link['call_id']
-            answered_ids.add(link['call_id'])
-            target['responses'].append(response)
-            target['observation'] += text + '\n'
+                    contexts.append({'role':'user','content':suffix,'before_step':len(steps)+1,
+                                     'source_message_index':index,'source_content_start':suffix_start,
+                                     'source_content_end':len(text)})
+                available = [(s,ci,link) for s,ci,link in pending
+                             if not link['call_id'] or link['call_id'] not in answered_ids]
+                edges, responses = [], []
+                for fi,(start,end,body) in enumerate(fragments):
+                    hints = response_hints(body)
+                    outer_id = message.get('tool_call_id',message.get('response_to'))
+                    if outer_id and hints.get('id') and outer_id!=hints['id']:
+                        raise ValueError('conflicting_response_identifier')
+                    cid = hints.get('id') or (outer_id if len(fragments)==1 else None)
+                    name = message.get('name') or hints.get('name')
+                    if name: hints['name'] = name
+                    response = {'content':body,'response_to':cid,'source_response_id':cid,'source_role':message.get('role',message.get('from')),
+                                'source_message_index':index,'source_channel':message.get('channel'),
+                                'source_content_start':start,'source_content_end':end,'source_envelope_index':fi}
+                    responses.append(response)
+                    if cid and (cid not in call_ids or cid in answered_ids):
+                        errors.append('unmatched_tool_response_id');edges.append([]);continue
+                    # Native IDs and a single outstanding request establish the
+                    # binding independently of provider query rewriting/redirects.
+                    typed=[candidate for candidate in available if name and compatible(candidate[0]['calls'][candidate[1]],{'name':name})]
+                    identity_unique=bool(cid) or len(available)==1 or len(typed)==1
+                    binding_hints={'name':name} if identity_unique and name else {} if identity_unique else hints
+                    eligible = [j for j,(s,ci,link) in enumerate(available)
+                                if (not cid or cid==link['call_id']) and compatible(s['calls'][ci],binding_hints)]
+                    if cid and not eligible and cid in call_ids:
+                        errors.append('tool_response_name_mismatch')
+                    edges.append(eligible)
+                mapping = unique_matching(edges,available)
+            except ValueError:
+                errors.append('ambiguous_tool_response' if pending else 'orphan_tool_observation')
+                unassigned.extend(responses or [{'content':text,'source_message_index':index,'response_to':None}])
+                continue
+            for response, choice in zip(responses,mapping):
+                target,ci,link = available[choice]
+                if not link['call_id']:
+                    generated = f"generated:m{link['source_message_index']}:c{ci}"
+                    while generated in reserved_ids: generated += ':generated'
+                    reserved_ids.add(generated);link['call_id']=generated
+                    link['id_origin']='unique_response_association';call_ids[generated]=(target,ci,link)
+                response['response_to']=link['call_id'];answered_ids.add(link['call_id'])
+                target['responses'].append(response);target['observation']+=response['content']+'\n'
         elif role == 'user':
             if not steps and not question:
                 question = text
@@ -163,10 +172,16 @@ def conversation(row):
                                  'source_message_index': index})
         else:
             raise AdapterUnsupported('Unsupported message role: ' + str(role))
+    batch_flags=[]
+    if unassigned:
+        from web_batching import closed_round_batches
+        unassigned,batch_flags=closed_round_batches(steps,unassigned,contexts,instructions,reserved_ids,answered_ids)
+        if not unassigned and batch_flags:
+            errors=[e for e in errors if e!='ambiguous_tool_response']
     if any(not link['call_id'] or link['call_id'] not in answered_ids for _, _, link in pending):
         errors.append('missing_tool_response')
     item = {'question': question, 'reference_answer': reference, 'steps': steps,
-            'program_errors': sorted(set(errors))}
+            'program_errors': sorted(set(errors)),'adapter_flags':batch_flags}
     if question_index is not None:
         item['question_source_message_index'] = question_index
     if unassigned:

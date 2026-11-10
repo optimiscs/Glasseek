@@ -243,7 +243,9 @@ def check_search_server_requirements() -> bool:
 
 
 def _search_server_response(query: str, limit: int = 5) -> Dict[str, Any]:
-    query = str(query or "").strip()
+    if not isinstance(query, str):
+        return {"success": False, "error": "search provider requires one string query; use the web_search batch dispatcher"}
+    query = query.strip()
     if not query:
         return {"success": False, "error": "query is required for web_search"}
 

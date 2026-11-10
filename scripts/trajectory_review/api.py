@@ -6,12 +6,49 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import Response
+from fastapi.responses import Response, HTMLResponse
 from trajectory_review.core import RUBRIC, RUBRIC_HASH, VERSION, connect, submit
 from trajectory_review.source_view import blocks as source_blocks
 
 ROOT=Path(__file__).resolve().parents[2]
 router=APIRouter(prefix='/api/curation')
+
+
+@router.api_route('/tensorboard/{path:path}', methods=['GET', 'HEAD', 'POST'])
+async def tensorboard_proxy(path: str, request: Request):
+    """Proxy the local experimental-training dashboard through the viewer port."""
+    import httpx
+    target='http://127.0.0.1:6008/api/curation/tensorboard/'+path
+    if request.url.query:target+='?'+request.url.query
+    headers={k:v for k,v in request.headers.items()
+             if k.lower() in ('accept','content-type','if-none-match','if-modified-since')}
+    try:
+        async with httpx.AsyncClient(trust_env=False,timeout=60) as client:
+            result=await client.request(request.method,target,headers=headers,content=await request.body())
+    except httpx.RequestError:
+        raise HTTPException(503,'TensorBoard 服务尚未就绪') from None
+    response_headers={k:v for k,v in result.headers.items()
+                      if k.lower() in ('content-type','cache-control','etag','last-modified','location')}
+    return Response(result.content,status_code=result.status_code,headers=response_headers)
+
+
+@router.get('/pipeline',response_class=HTMLResponse)
+def pipeline_page():
+    return HTMLResponse(Path(__file__).with_name('pipeline.html').read_text(),headers={'Cache-Control':'no-store'})
+
+
+@router.get('/pipeline/data')
+def pipeline_data():
+    from trajectory_review.pipeline_view import snapshot
+    try:return snapshot()
+    except FileNotFoundError:raise HTTPException(503,'清洗批次尚未配置') from None
+
+
+@router.get('/pipeline/case/{ident}')
+def pipeline_case(ident:str):
+    from trajectory_review.pipeline_view import detail
+    try:return detail(ident)
+    except KeyError:raise HTTPException(404,'本批次中没有此轨迹') from None
 
 
 def database():

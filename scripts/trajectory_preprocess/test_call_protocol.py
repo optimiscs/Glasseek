@@ -37,7 +37,7 @@ class CallProtocolTests(unittest.TestCase):
         return review_messages(item)
 
     def test_reversed_response_ids_keep_identity_and_source_positions(self):
-        item=self.item([self.call('a'),self.call('b')],[
+        item=self.item([self.call('a'),self.call('b',args={'query':'test','limit':6})],[
             {'role':'tool','tool_call_id':'b','content':'B'},
             {'role':'tool','tool_call_id':'a','content':'A'}])
         messages=self.render(item)
@@ -61,7 +61,7 @@ class CallProtocolTests(unittest.TestCase):
         item=self.item([self.call(None)],[{'role':'tool','content':'A'}])
         self.assertEqual(item['program_errors'],[])
         self.assertTrue(item['steps'][0]['responses'][0]['response_to'].startswith('generated:'))
-        item=self.item([self.call(None),self.call(None)],[{'role':'tool','content':'A and B'}])
+        item=self.item([self.call(None),self.call(None,args={'query':'test','limit':6})],[{'role':'tool','content':'A and B'}])
         self.assertIn('ambiguous_tool_response',item['program_errors'])
         self.assertEqual(item['steps'][0]['responses'],[])
         self.assertEqual(item['unassigned_responses'][0]['content'],'A and B')
@@ -87,15 +87,16 @@ class CallProtocolTests(unittest.TestCase):
         self.assertEqual(json.loads(messages[2]['content'].strip()[len('<tool_response>'):-len('</tool_response>')]),response)
         validate_messages(messages,runtime_schemas())
 
-    def test_ambiguous_text_and_unknown_page_status_are_not_invented(self):
+    def test_batch_text_is_preserved_without_inventing_page_status(self):
         urls=['https://example.org/a','https://example.org/b']
         item=self.item([self.call('native','visit',{'url':urls})],[
             {'role':'tool','tool_call_id':'native','content':'Merged prose with no page boundaries'}])
         messages=self.render(item)
         self.assertEqual(messages[2]['content'],'<tool_response>\nMerged prose with no page boundaries\n</tool_response>')
-        self.assertIn('extract_page_boundaries_unverified',item['harness']['flags'])
+        self.assertNotIn('extract_page_boundaries_unverified',item['harness']['flags'])
+        validate_messages(messages,runtime_schemas())
         with self.assertRaisesRegex(ValueError,'boundaries'):
-            validate_messages(messages,runtime_schemas())
+            validate_messages(messages,runtime_schemas(),require_page_status=True)
         original={'results':[{'url':u,'content':'text'} for u in urls]}
         converted,reason=historical_results(json.dumps(original),urls)
         self.assertIsNone(reason)
@@ -111,12 +112,15 @@ class CallProtocolTests(unittest.TestCase):
         self.assertEqual(item['steps'][0]['calls'][0]['arguments']['url'],urls)
         with self.assertRaises(ValueError):validate_urls(urls)
 
-    def test_split_search_does_not_duplicate_response(self):
+    def test_multi_query_search_keeps_one_opaque_batch_response(self):
         item=self.item([self.call('a','search',{'query':['x','y']})],[{'role':'tool','tool_call_id':'a','content':'Merged'}])
         messages=self.render(item)
-        self.assertIn('target_call_response_alignment_required',item['harness']['flags'])
-        self.assertEqual(item['steps'][0]['source_responses'][0]['response_to'],'a')
-        with self.assertRaises(ValueError):validate_messages(messages,runtime_schemas())
+        self.assertNotIn('target_call_response_alignment_required',item['harness']['flags'])
+        self.assertEqual(item['steps'][0]['calls'][0]['arguments']['query'],['x','y'])
+        self.assertEqual(len(item['steps'][0]['responses']),1)
+        self.assertEqual(item['steps'][0]['responses'][0]['response_to'],'a')
+        self.assertEqual(item['steps'][0]['responses'][0]['content'],'Merged')
+        validate_messages(messages,runtime_schemas())
 
     def test_duplicate_json_keys_and_wrong_url_coverage_held(self):
         self.assertIsNone(historical_results('{"results":[],"results":[]}',[])[0])
@@ -139,6 +143,8 @@ class CallProtocolTests(unittest.TestCase):
         item=self.item([self.call('a')],[{'role':'tool','tool_call_id':'a','content':'A'}])
         candidate={'id':'fixture','messages':self.render(item),
             'tools':[{'type':'function','function':s} for s in runtime_schemas().values()]}
+        # Acceptance is bound after presentation normalization, as in production.
+        candidate['messages'][-1]['content']='<answer>done</answer>'
         approval={'id':'fixture','content_sha256':digest(payload(candidate)),
                   'safety':'passed','quality':'passed','replay':'passed','review':'passed'}
         with tempfile.TemporaryDirectory() as d:
@@ -157,7 +163,7 @@ class CallProtocolTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'acceptance'):verify_release_file(d/'held/train.parquet')
 
     def test_stale_approval_and_changed_schema_rejected(self):
-        candidate={'id':'fixture','messages':[{'role':'user','content':'q'},{'role':'assistant','content':'a'}],
+        candidate={'id':'fixture','messages':[{'role':'user','content':'q'},{'role':'assistant','content':'<answer>a</answer>'}],
                    'tools':[{'type':'function','function':s} for s in runtime_schemas().values()]}
         approval={'id':'fixture','content_sha256':'stale','safety':'passed','quality':'passed','replay':'passed','review':'passed'}
         with tempfile.TemporaryDirectory() as d:
@@ -169,6 +175,18 @@ class CallProtocolTests(unittest.TestCase):
             publish(source,review,d/'ok')
             with self.assertRaisesRegex(ValueError,'schema'):
                 verify_release_file(d/'ok/train.parquet',{})
+
+    def test_approval_cannot_bypass_text_normalization(self):
+        candidate={'id':'fixture','messages':[{'role':'user','content':'q'},{'role':'assistant','content':'plain answer'}],
+                   'tools':[{'type':'function','function':s} for s in runtime_schemas().values()]}
+        approval={'id':'fixture','content_sha256':digest(payload(candidate)),
+                  'safety':'passed','quality':'passed','replay':'passed','review':'passed'}
+        with tempfile.TemporaryDirectory() as d:
+            d=Path(d);source=d/'input';review=d/'approval'
+            source.write_text(json.dumps(candidate)+'\n');review.write_text(json.dumps(approval)+'\n')
+            manifest=publish(source,review,d/'held')
+            self.assertEqual(manifest['rows'],0)
+            self.assertEqual(manifest['held_reasons'],{'training_text_normalization_required':1})
 
     def test_excluded_source_and_qwen_external_origin(self):
         with self.assertRaisesRegex(ValueError,'excluded_dataset_source'):

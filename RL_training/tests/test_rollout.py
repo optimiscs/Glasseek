@@ -68,7 +68,8 @@ def test_generation_budget_is_failure_and_not_final_answer():
 
 def test_tools_and_answer_extraction():
     xml = '<tool_call><function=web_search><parameter=query>Paris &amp; London</parameter></function></tool_call>'
-    assert parse_tool_calls(xml) == [{"name": "web_search", "arguments": {"query": "Paris & London"}}]
+    # Qwen string parameters are raw text, not XML entity-encoded values.
+    assert parse_tool_calls(xml) == [{"name": "web_search", "arguments": {"query": "Paris &amp; London"}}]
     assert parse_tool_calls('<think>' + xml + '</think>Done') == []
     with pytest.raises(ValueError):
         parse_tool_calls('<tool_call>unfinished')

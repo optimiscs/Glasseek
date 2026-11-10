@@ -1,9 +1,11 @@
 import json
+import csv
 from pathlib import Path
 import unittest
 import tempfile
 from types import SimpleNamespace
-from report_safety_scan import safe_window,report
+from reporting.examples import safe_window
+from reporting.safety import report
 from safety_rules import Scanner
 import safety_pipeline
 
@@ -33,7 +35,7 @@ class SafetyReportTests(unittest.TestCase):
             contract={'schemas':{},'delegation':{'blocked_child_tools':[]}}
             scanner=Scanner(self.scanner.policy,contract,key)
             token='sk-'+'k'*32
-            texts=['safe answer','contact person@example.org',token+' person@example.org']
+            texts=['safe answer','contact person@example.org phone 13800138000',token+' person@example.org']
             items=[{'id':str(i),'source':'Synthetic','agent_role':'parent','tools':[],
                     'messages':[{'role':'user','content':'Question'},{'role':'assistant','content':text}]} for i,text in enumerate(texts)]
             source=root/'candidates.jsonl';source.write_text(''.join(json.dumps(x)+'\n' for x in items))
@@ -44,7 +46,11 @@ class SafetyReportTests(unittest.TestCase):
             result=json.loads((args.output/'report/summary.json').read_text())
             self.assertEqual(result['totals'],{'scanned':3,'pass_rules':1,'review':1,'quarantine':1})
             causes={(r['state'],r['rule_id']):r['trajectories'] for r in result['disposition_reasons']}
-            self.assertEqual(causes,{('review','privacy.email'):1,('quarantine','credential.token'):1})
+            self.assertEqual(causes,{('review','privacy.email'):1,('review','privacy.phone'):1,('quarantine','credential.token'):1})
+            with (args.output/'report/review_category_matrix.csv').open() as handle:
+                self.assertEqual(list(csv.DictReader(handle)),[{'dataset':'Synthetic','unique_trajectories':'1','privacy':'1'}])
+            with (args.output/'report/quarantine_rule_matrix.csv').open() as handle:
+                self.assertEqual(list(csv.DictReader(handle)),[{'dataset':'Synthetic','unique_trajectories':'1','credential.token':'1'}])
             samples=(args.output/'report/audit_samples.json').read_text()
             self.assertNotIn(token,samples);self.assertNotIn('person@example.org',samples)
 

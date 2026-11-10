@@ -14,10 +14,8 @@ exec 9>"$OUT/launcher.lock"
 flock -n 9 || exit 1
 nohup setsid bash -c '
     "$1" -u "$2/migrate_searchswarm.py" --output "$3" &&
-    "$1" -u "$2/../trajectory_benchmark/export_migrated_review_sft.py" --migration "$3" &&
-    "$1" -u "$2/../trajectory_benchmark/compare_searchswarm_glasseek.py" --migration "$3" &&
-    "$1" -u "$2/../trajectory_benchmark/verify_migration_masks.py" --comparison "$3/comparison" &&
-    "$1" -u "$2/../trajectory_benchmark/audit_searchswarm_migration.py" --migration "$3"
+    "$1" -u "$2/export_migrated_review_sft.py" --migration "$3" &&
+    "$1" -u "$2/audit_searchswarm_migration.py" --migration "$3"
 ' _ "$PYTHON" "$SCRIPT_DIR" "$OUT" >>"$OUT/run.log" 2>&1 < /dev/null &
 pid=$!
 echo "$pid" > "$OUT/run.pid"

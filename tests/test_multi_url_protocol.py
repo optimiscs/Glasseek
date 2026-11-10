@@ -26,6 +26,8 @@ def test_evaluation_registry_rejects_six_urls_before_network():
 
 
 def test_evaluation_mixed_results_preserve_url_failure_and_order():
+    registered_search = web.registry.get_entry('web_search')
+    registered_extract = web.registry.get_entry('web_extract')
     async def run():
         urls=['https://example.org/a','https://example.org/b']
         provider=SimpleNamespace(name='test',supports_extract=lambda:True,extract=AsyncMock(return_value=[
@@ -37,6 +39,11 @@ def test_evaluation_mixed_results_preserve_url_failure_and_order():
             s.enter_context(patch.object(web,'_get_extract_backend',return_value='test'))
             s.enter_context(patch.object(web,'_ensure_web_plugins_loaded'))
             s.enter_context(patch('agent.web_search_registry.get_provider',return_value=provider))
+            # Legacy extraction probes auxiliary configuration even when LLM
+            # processing is disabled. Keep that probe from discovering real
+            # plugins and replacing the process-wide tool registrations.
+            s.enter_context(patch.object(web,'_get_default_summarizer_model',return_value='test'))
+            s.enter_context(patch.object(web,'check_auxiliary_model',return_value=False))
             s.enter_context(patch.object(web,'_debug'))
             llm=s.enter_context(patch.object(web,'process_content_with_llm',new_callable=AsyncMock))
             result=json.loads(await web.web_extract_tool(urls,use_llm_processing=False))
@@ -46,6 +53,8 @@ def test_evaluation_mixed_results_preserve_url_failure_and_order():
             assert result['results'][1]['error']=='page failed'
             llm.assert_not_called()
     asyncio.run(run())
+    assert web.registry.get_entry('web_search') is registered_search
+    assert web.registry.get_entry('web_extract') is registered_extract
 
 
 @pytest.mark.parametrize('mode',['raw','ref','hybrid','evidence'])

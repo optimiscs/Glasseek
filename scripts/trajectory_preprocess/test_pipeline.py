@@ -48,10 +48,11 @@ class PipelineTests(unittest.TestCase):
         self.assertIsNone(outcome['exact_duplicate_of']);self.assertIn(item['id'],outcome['near_duplicates'])
         dedup.close()
 
-    def test_harness_mapping_preserves_source_and_splits_lists(self):
+    def test_harness_mapping_preserves_source_and_query_batches(self):
         item=self.sample();before=copy.deepcopy(item)
         plan=harness_plan(item,self.config['harness'])
-        self.assertEqual(len(plan['calls']),2);self.assertEqual(plan['calls'][0]['name'],'web_search')
+        self.assertEqual(len(plan['calls']),1);self.assertEqual(plan['calls'][0]['name'],'web_search')
+        self.assertEqual(plan['calls'][0]['arguments']['query'],['X','Y'])
         self.assertFalse(plan['replayed']);self.assertEqual(before,item)
         item['steps'][0]['calls']=[{'name':'visit','arguments':{'url':['https://example.org/'+str(i) for i in range(7)],'goal':'Find a fact'}}]
         plan=harness_plan(item,self.config['harness'])
@@ -80,7 +81,7 @@ class PipelineTests(unittest.TestCase):
         value={'original_span':'Example Entity','replacement':'Different Entity',
                'evidence':[{'step_id':1,'quote':'Object X was released in 2042.'}]}
         checked=p.validate_counterfactual(value,item)
-        location=checked['edit_location'];original=p.policy.v2.final_text(item)
+        location=checked['edit_location'];original=p.policy.final_text(item)
         self.assertEqual(original[:location['start']]+checked['replacement']+original[location['end']:],'**Different Entity**')
         self.assertEqual(location['match'],'unicode_whitespace')
         item['steps'][-1]['assistant']='Example Entity and Example\u202fEntity'
@@ -142,7 +143,7 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(len(seen),2)
             client2=Client(self.config,self.root,'new-policy')
             client2.call('inventory','x','different prompt','system',lambda x:x)
-            self.assertEqual(len(seen),2)  # Revalidate unchanged raw output after a code-only update.
+            self.assertEqual(len(seen),3)  # Policy changes invalidate model decisions, not just parsing.
             self.config['providers']['second']={**self.config['providers']['default'],'model':'local-reviewer'}
             self.config['stages']['review']={'provider':'second','generation':{'max_tokens':32768}}
             client2.call('review','x','review prompt','system',lambda x:x)

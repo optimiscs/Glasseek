@@ -64,6 +64,8 @@ class Client:
 
     def request(self, provider, method, suffix, body=None):
         url = provider['url'].rstrip('/')
+        if self.config.get('local_only') and (urlparse(url).hostname not in ('127.0.0.1', 'localhost', '::1') or provider.get('trust_env')):
+            raise ValueError('Local-only annotation forbids external endpoints and proxy inheritance')
         if urlparse(url).scheme not in ('http', 'https') or urlparse(url).username or urlparse(url).query:
             raise ValueError('Use a plain HTTP(S) API base URL; put credentials in key')
         key = resolve_key(provider.get('key', ''))
@@ -116,15 +118,24 @@ class Client:
                 model = self.models[name]
         return provider, model
 
-    def call(self, stage, ident, prompt, system, validator):
+    def call(self, stage, ident, prompt, system, validator, *, schema=None):
         if self.privacy_mode:
             prompt, system = self.scrubber(prompt), self.scrubber(system)
         provider, model = self.endpoint(stage)
-        extra = provider.get('extra_body_by_host', {}).get(urlparse(provider['url']).hostname, {})
+        extra = copy.deepcopy(provider.get('extra_body_by_host', {}).get(urlparse(provider['url']).hostname, {}))
+        if schema is not None:
+            from jsonschema import Draft202012Validator
+            Draft202012Validator.check_schema(schema)
+            original_validator = validator
+            def validator(value):
+                Draft202012Validator(json.loads(json.dumps(schema), parse_float=__import__('decimal').Decimal)).validate(json.loads(json.dumps(value), parse_float=__import__('decimal').Decimal))
+                return original_validator(value)
+            extra['response_format'] = {'type':'json_schema', 'json_schema':{
+                'name':stage, 'strict':True, 'schema':schema}}
         if set(extra) & {'model', 'messages'}:
             raise ValueError('extra_body cannot override model or messages')
         generation = {**self.config['generation'], **self.config['stages'][stage].get('generation', {})}
-        fingerprint = digest([stage, model, provider['url'], extra, generation, system, prompt] +
+        fingerprint = digest([stage, model, provider['url'], extra, generation, system, prompt, self.policy_hash] +
                              ([self.policy_hash, 'privacy-v1'] if self.privacy_mode else []))
         cache = self.output / 'cache' / digest(ident)[:24] / (stage + '.json')
         if cache.exists():
@@ -142,10 +153,15 @@ class Client:
             record = {'id': ident, 'stage': stage, 'model': model, 'attempt': attempt, 'fingerprint': fingerprint,
                       'started_at': datetime.now(timezone.utc).isoformat(), 'max_tokens': generation.get('max_tokens', 10000)}
             try:
-                body = self.request(provider, 'POST', '/chat/completions', {
+                request_body = {
                     'model': model, 'temperature': generation.get('temperature', 0),
                     'max_tokens': generation.get('max_tokens', 10000),
-                    'messages': [{'role': 'system', 'content': system}, {'role': 'user', 'content': prompt + feedback}], **extra})
+                    'messages': [{'role': 'system', 'content': system}, {'role': 'user', 'content': prompt + feedback}], **extra}
+                if self.config.get('record_first_prompts') and not self.privacy_mode and attempt==1:
+                    save(self.output/'prompts'/digest(ident)[:24]/(stage+'.json'),request_body)
+                body = self.request(provider, 'POST', '/chat/completions', request_body)
+                if self.config.get('local_only') and body.get('model') != model:
+                    raise ValueError('Local response model does not match configured model')
                 record['usage'] = body.get('usage', {})
                 record['transport_attempts'] = body.get('_transport_attempts', 1)
                 record['returned_model'] = body.get('model')

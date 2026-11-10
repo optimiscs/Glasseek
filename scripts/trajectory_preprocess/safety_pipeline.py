@@ -79,7 +79,7 @@ def identity(path):
 
 def code_hashes():
     return {n:hashlib.sha256((HERE/n).read_bytes()).hexdigest() for n in
-            ('safety_pipeline.py','safety_rules.py','safety_context.py','safety_review.py','client.py','tool_xml.py','glasseek_contract.py','answer_leakage.py')}
+            ('safety_pipeline.py','safety_rules.py','safety_context.py','safety_review.py','client.py','tool_xml.py','glasseek_contract.py','answer_leakage.py','release_protocol.py','audit_xml.py')}
 
 
 def connect(out):
@@ -283,10 +283,31 @@ def export(args,scanner):
     state=json.loads(db.execute('SELECT state FROM checkpoint WHERE id=1').fetchone()[0])
     if state['status']!='completed':
         db.close();raise ValueError('Finish the scan before exporting')
+    destination=args.output/'export'
+    if destination.exists():
+        db.close();raise ValueError('Export already exists; do not overwrite an audited export')
     decisions={}
     for key,text in db.execute('SELECT record_key,result FROM decisions'):
         row=json.loads(text)
         decisions[key]={k:row.get(k) for k in ('state','delegation_calls','delegation_tasks')}
+    protocol_errors={};protocol_metrics=collections.Counter()
+    if getattr(args,'verify_protocol',False):
+        from release_protocol import check
+        contract=json.loads((args.output/'contract.json').read_text())
+        with source.open('rb') as handle,(args.output/'protocol_audit.jsonl').open('w') as audit:
+            for key,text in db.execute('SELECT record_key,result FROM decisions ORDER BY row_index'):
+                result=json.loads(text)
+                if not result.get('coverage_complete'):
+                    errors=['protocol.incomplete_safety_coverage'];metrics={}
+                else:
+                    item=read_item(handle,result);errors,metrics=check(item,contract)
+                protocol_metrics.update(metrics)
+                protocol_metrics['held' if errors else 'passed']+=1
+                audit.write(json.dumps({'record_key':key,'source_row':result['source_row'],
+                    'content_hash':result['content_hash'],'errors':errors})+'\n')
+                if errors:
+                    protocol_errors[key]=errors
+                    if decisions[key]['state'] in PASS:decisions[key]['state']='protocol_review'
     dependencies=collections.defaultdict(set);linked=set();task_links=collections.defaultdict(set)
     links_digest=hashlib.sha256()
     links=args.links or source.parent/'delegation_links.jsonl'
@@ -325,18 +346,18 @@ def export(args,scanner):
         for parent,children in dependencies.items():
             if any(c is None or c not in decisions or c in blocked or c in dependency_review for c in children):dependency_review.add(parent)
         changed=len(dependency_review)!=old
-    counts=collections.Counter();destination=args.output/'export'
-    if destination.exists(): raise ValueError('Export already exists; do not overwrite an audited export')
+    counts=collections.Counter()
     destination.mkdir()
     try:
         with source.open('rb') as handle,(destination/'candidates.jsonl.tmp').open('w') as output, (destination/'withheld.jsonl').open('w') as withheld:
             for key,text in db.execute('SELECT record_key,result FROM decisions ORDER BY row_index'):
                 r=json.loads(text)
-                outcome=r['state']
+                outcome=decisions[key]['state']
                 if key in dependency_review and outcome in PASS:outcome='dependency_review'
                 counts[outcome]+=1
                 if outcome not in PASS:
-                    withheld.write(json.dumps({'record_key':key,'source_row':r['source_row'],'state':outcome,'content_hash':r['content_hash']})+'\n');continue
+                    withheld.write(json.dumps({'record_key':key,'source_row':r['source_row'],'state':outcome,'content_hash':r['content_hash'],
+                        'reasons':protocol_errors.get(key,[])+(['dependency.child_missing_or_held_or_cycle'] if key in dependency_review else [])})+'\n');continue
                 item=read_item(handle,r);item['training_ready']=False
                 item['safety']={'state':outcome,'content_hash':r['content_hash'],'policy_hash':scanner.policy_hash,'record_key':key}
                 output.write(json.dumps(item,ensure_ascii=False)+'\n')
@@ -344,6 +365,7 @@ def export(args,scanner):
         assert sum(counts.values())==state['next_row']
         save(destination/'summary.json',{'status':'completed','counts':dict(counts),'policy_hash':scanner.policy_hash,
              'input_records':state['next_row'],'exported':sum(counts[k] for k in PASS),'training_ready':False,
+             'strict_protocol_verified':getattr(args,'verify_protocol',False),'protocol_metrics':dict(protocol_metrics),
              'scope':'Safety-screened review candidates, not factual approval. Unavailable or withheld child archives cause parent dependency review.',
              'links_identity':identity(links) if links.exists() else None,'links_sha256':links_digest.hexdigest() if links.exists() else None})
     finally: db.close()
@@ -363,7 +385,9 @@ def main():
             p.add_argument('--enable-llm',action='store_true',help='Enable review without changing the frozen rule policy')
         if name=='apply-review':p.add_argument('--review-file',type=Path,required=True)
         if name=='redact':p.add_argument('--limit',type=int,default=36)
-        if name=='export':p.add_argument('--links',type=Path)
+        if name=='export':
+            p.add_argument('--links',type=Path)
+            p.add_argument('--verify-protocol',action='store_true',help='Validate runtime XML and associations before dependency closure')
     args=ap.parse_args()
     if hasattr(args,'workers') and args.workers<1:ap.error('workers must be positive')
     if hasattr(args,'limit') and args.limit is not None and args.limit<1:ap.error('limit must be positive')

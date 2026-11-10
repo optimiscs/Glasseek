@@ -126,6 +126,8 @@ def normalize_target(messages,question,source,row_index,source_path,ident,bundle
     item=normalize({'question':question,'messages':messages},source,str(source_path),row_index)
     item['id']=ident;item['bundle_id']=bundle;item['agent_role']=role
     item['split_group_id']=digest(re.sub(r'\s+',' ',question).strip().casefold())
+    from migration_rules import memberships
+    item['migration_rules']=memberships(item)
     item['harness']=harness_plan(item,{'search_name':'web_search','extract_name':'web_extract','extract_max_urls':5,'contract':contract})
     errors=set(item['program_errors']+item['harness']['errors']+(extra_errors or []))
     if role=='child':
@@ -159,32 +161,42 @@ def review_messages(item):
 
 
 def main():
-    ap=argparse.ArgumentParser();ap.add_argument('--output',type=Path,required=True);ap.add_argument('--limit',type=int);args=ap.parse_args()
+    ap=argparse.ArgumentParser();ap.add_argument('--output',type=Path,required=True);ap.add_argument('--limit',type=int)
+    ap.add_argument('--sample-manifest',type=Path)
+    ap.add_argument('--compress-archive',action='store_true',help='Losslessly gzip parent/child archives and candidates')
+    args=ap.parse_args()
     out=args.output.resolve();out.mkdir(parents=True,exist_ok=True)
     if (out/'manifest.json').exists():raise SystemExit('Output already contains a migration; use a new directory')
     source=ROOT/'data/SearchSwarm-SFT/train.parquet';contract=build_contract();pf=pq.ParquetFile(source)
+    selection=json.loads(args.sample_manifest.read_text()) if args.sample_manifest else None
+    selected=set(selection['indices_by_path'][str(source)]) if selection else None
     builder=child_prompt_builder();started=time.monotonic();counts=collections.Counter();reasons=collections.defaultdict(collections.Counter)
-    code_files=[Path(__file__),*[Path(__file__).with_name(n) for n in ('ingest.py','message_adapter.py','tool_xml.py','glasseek_contract.py','client.py','runtime_metadata.py','call_protocol.py')],ROOT/'Shared/glasseek_shared/extract_protocol.py']
-    stat=source.stat();manifest={'version':'searchswarm-glasseek-migration-4-call-response','source':str(source),'bytes':stat.st_size,'mtime_ns':stat.st_mtime_ns,
+    code_files=[Path(__file__),*[Path(__file__).with_name(n) for n in ('ingest.py','message_adapter.py','tool_xml.py','glasseek_contract.py','client.py','runtime_metadata.py','call_protocol.py','extract_batching.py','web_batching.py','tool_prompt.py','migration_rules.py')],ROOT/'Shared/glasseek_shared/extract_protocol.py',ROOT/'Shared/glasseek_shared/historical_tools.py',ROOT/'Shared/glasseek_shared/search_protocol.py',ROOT/'Shared/glasseek_shared/web_return_audit.py',ROOT/'Shared/glasseek_shared/hermes/qwen_xml_protocol.py']
+    stat=source.stat();manifest={'version':'searchswarm-glasseek-migration-9-search-return-audit','extract_return_policy':'historical-web-call-batch-v3','source':str(source),'bytes':stat.st_size,'mtime_ns':stat.st_mtime_ns,'selection':selection,
         'expected_bundles':pf.metadata.num_rows,'limit':args.limit,'contract':contract,'annotation_char_budget_applied':False,
         'notes':['Migration compatibility is separate from annotation budget and semantic quality.','Unknown historical status/api_calls/duration are omitted.','Message loss roles are specified; token-level masks must be verified with the final training template.'],
         'code_sha256':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in code_files}}
     (out/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n');(out/'frozen_source').mkdir()
     for path in code_files:(out/'frozen_source'/path.name).write_bytes(path.read_bytes())
-    files={n:(out/(n+'.jsonl')).open('w') for n in ('parents','children','parent_candidates','child_candidates','held','links','delegation_events','duplicates')}
+    import gzip
+    files={n:(gzip.open(out/(n+'.jsonl.gz'),'wt',encoding='utf-8',compresslevel=1)
+              if args.compress_archive and n in ('parents','children','parent_candidates','child_candidates') else (out/(n+'.jsonl')).open('w'))
+           for n in ('parents','children','parent_candidates','child_candidates','held','links','delegation_events','duplicates')}
     db=sqlite3.connect(out/'exact_dedup.sqlite');db.execute('CREATE TABLE seen (hash TEXT PRIMARY KEY,id TEXT)')
     def emit(name,value):files[name].write(json.dumps(value,ensure_ascii=False)+'\n')
     def save(item):
         kind=item['agent_role'];counts[kind+'_normalized']+=1
         item['message_loss_roles']='assistant_only; system/user/tool context has zero loss'
         item['serialized_chars']=len(json.dumps(item,ensure_ascii=False))
+        from call_protocol import model_visible_chars
+        item['model_visible_chars']=model_visible_chars(item)
         item['over_legacy_250k_char_budget']=item['serialized_chars']>250000
         emit('parents' if kind=='parent' else 'children',item)
         if item['migration_errors']:
-            counts[kind+'_held']+=1;reasons[kind].update(item['migration_errors']);emit('held',{'id':item['id'],'agent_role':kind,'reasons':item['migration_errors'],'bundle_id':item['bundle_id']});return
+            counts[kind+'_held']+=1;reasons[kind].update(item['migration_errors']);emit('held',{'id':item['id'],'agent_role':kind,'reasons':item['migration_errors'],'bundle_id':item['bundle_id'],'migration_rules':item['migration_rules']});return
         hit=db.execute('SELECT id FROM seen WHERE hash=?',(item['content_hash'],)).fetchone()
         if hit:
-            counts[kind+'_exact_duplicates']+=1;emit('duplicates',{'id':item['id'],'duplicate_of':hit[0],'agent_role':kind});return
+            counts[kind+'_exact_duplicates']+=1;emit('duplicates',{'id':item['id'],'duplicate_of':hit[0],'agent_role':kind,'migration_rules':item['migration_rules']});return
         db.execute('INSERT INTO seen VALUES (?,?)',(item['content_hash'],item['id']))
         counts[kind+'_candidates']+=1
         item['messages']=review_messages(item);item['message_loss_mask']=[int(m['role']=='assistant') for m in item['messages']]
@@ -193,6 +205,7 @@ def main():
     try:
         for ri,batch in enumerate(pf.iter_batches(batch_size=1,use_threads=False)):
             if args.limit is not None and ri>=args.limit:break
+            if selected is not None and ri not in selected:continue
             row=batch.to_pylist()[0];counts['bundles']+=1
             bundle,msgs,events,errors=convert_parent(row,ri,source,contract)
             children=row.get('subagents') or [];counts['children_read']+=len(children)
@@ -238,7 +251,7 @@ def main():
                     counts['child_held']+=1;reasons['child']['normalization:'+str(e)]+=1;emit('held',{'id':ident,'agent_role':'child','reasons':['normalization:'+str(e)]})
             if counts['bundles']%100==0:
                 db.commit();print(json.dumps({'counts':counts,'elapsed_seconds':time.monotonic()-started}),flush=True)
-        expected=min(args.limit,pf.metadata.num_rows) if args.limit is not None else pf.metadata.num_rows
+        expected=len([i for i in selected if args.limit is None or i<args.limit]) if selected is not None else (min(args.limit,pf.metadata.num_rows) if args.limit is not None else pf.metadata.num_rows)
         assert counts['bundles']==expected
         assert counts['parent_candidates']+counts['parent_held']+counts['parent_exact_duplicates']==counts['bundles']
         assert counts['child_candidates']+counts['child_held']+counts['child_exact_duplicates']==counts['children_read']

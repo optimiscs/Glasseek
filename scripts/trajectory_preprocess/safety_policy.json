@@ -1,5 +1,5 @@
 {
-  "version": "trajectory-safety-v2-answer-leakage",
+  "version": "trajectory-safety-v5-web-batch-response-scope",
   "disabled_rules": ["privacy.email", "privacy.phone"],
   "answer_overlap_max_chars": 120000,
   "hmac_key_env": "TRAJECTORY_SAFETY_HMAC_KEY",

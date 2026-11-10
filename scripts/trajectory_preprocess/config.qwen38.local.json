@@ -79,7 +79,7 @@
   },
   "inputs": [
     {
-      "path": "reports/trajectory-pilot-v2-20261107/samples.json",
+      "path": "data/inputs/trajectory-samples.jsonl",
       "source": "pilot",
       "adapter": "canonical"
     }

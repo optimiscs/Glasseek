@@ -33,7 +33,7 @@ def run(args, config):
     dist.init_process_group('nccl')
     source_line=args.source_line; root=Path(__file__).resolve().parents[2]
     model_path=config['model_path']
-    probe=args.data_path or root/f'experiments/ddp-lora-probe/line-{source_line}.parquet'
+    probe=args.data_path or root/f'data/experiments/ddp-lora-probe/line-{source_line}.parquet'
     tok=hf_tokenizer(model_path);processor=hf_processor(model_path)
     if processor is not None and not processor.chat_template: processor.chat_template=tok.chat_template
     cfg=OmegaConf.create({'pad_mode':'no_padding','max_length':config['max_length'],'truncation':config['truncation'],'messages_key':'messages','ignore_input_ids_mismatch':True})

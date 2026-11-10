@@ -3,6 +3,8 @@ from dataclasses import dataclass
 import json
 
 from tool_xml import normalize_text
+from glasseek_shared.extract_protocol import merged_response_slices, batch_response_slices
+from glasseek_shared.hermes.qwen_xml_protocol import has_batch_wrapper
 
 
 @dataclass
@@ -49,8 +51,22 @@ def build_context(item):
             content = ''
         external = role == 'tool' or (role == 'user' and content.lstrip().startswith('<tool_response>'))
         kind = 'external' if external else ('assistant' if role == 'assistant' else 'task' if role == 'user' else 'source_instruction')
+        spans=[];part_field='merged_response_parts'
+        if external and 'merged_response_parts' in message:
+            try:spans=merged_response_slices(content,message['merged_response_parts'])
+            except ValueError:issues.append('invalid_merged_response_parts')
+            else:kind='external_batch'
+        if external and 'batch_response_parts' in message:
+            part_field='batch_response_parts'
+            if 'merged_response_parts' in message:issues.append('invalid_batch_response_parts')
+            try:spans=batch_response_slices(content,message['batch_response_parts'])
+            except ValueError:issues.append('invalid_batch_response_parts')
+            else:kind='external_batch'
         views.append(View(f'/messages/{i}/content', content, kind, i))
+        for part,(start,end) in enumerate(spans):
+            views.append(View(f'/messages/{i}/{part_field}/{part}/content',content[start:end],'external_part',i,True))
         if role == 'assistant':
+            if has_batch_wrapper(content):issues.append('noncanonical_tool_batch_wrapper')
             if pending or outstanding: issues.append('missing_tool_response')
             pending = False; outstanding = set()
             try:

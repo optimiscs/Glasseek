@@ -81,7 +81,7 @@ def decoded(value):
 
 
 def payload(row):
-    return {'id': row['id'], 'messages': decoded(row['messages']), 'tools': decoded(row['tools']),
+    value = {'id': row['id'], 'messages': decoded(row['messages']), 'tools': decoded(row['tools']),
             'source': row.get('source', ''),
             'provenance': decoded(row.get('provenance', {})),
             'split_group_id': row.get('split_group_id') or '',
@@ -89,10 +89,19 @@ def payload(row):
             'enable_thinking': bool(row.get('enable_thinking', True)),
             'agent_role': row.get('agent_role', 'parent'),
             'url_mode': row.get('url_mode', 'raw')}
+    if row.get('supervision') is not None:
+        value['supervision'] = decoded(row['supervision'])
+    return value
 
 
-def validate_messages(messages, tool_schemas):
-    from glasseek_shared.extract_protocol import historical_results
+def validate_messages(messages, tool_schemas, *, require_page_status=False):
+    """Verify executable calls and batch responses. Page parsing is diagnostic.
+
+    require_page_status is an explicit legacy diagnostic, never the default SFT
+    acceptance gate. Historical multi-URL tool text need not be per-page JSON.
+    """
+    from glasseek_shared.extract_protocol import historical_results, merged_response_slices, batch_response_slices
+    from glasseek_shared.hermes.qwen_xml_protocol import has_batch_wrapper
     calls, responses = {}, set()
     for mi, message in enumerate(messages):
         role, text = message.get('role'), message.get('content')
@@ -101,6 +110,7 @@ def validate_messages(messages, tool_schemas):
         if message.get('association_status') == 'review_required':
             raise ValueError('unverified_response_association')
         if role == 'assistant':
+            if has_batch_wrapper(text):raise ValueError('legacy_tool_batch_wrapper')
             visible = re.sub(r'<think>.*?</think>', '', text, flags=re.S)
             blocks = re.findall(r'<tool_call>\s*(.*?)\s*</tool_call>', visible, re.S)
             links = message.get('call_links', [])
@@ -142,8 +152,42 @@ def validate_messages(messages, tool_schemas):
             if not cid or cid != message.get('tool_call_id') or cid not in calls or cid in responses:
                 raise ValueError('missing_duplicate_or_orphan_response_to')
             responses.add(cid)
-            _, name, args = calls[cid]
-            if name == 'web_extract':
+            call_mi, name, args = calls[cid]
+            if 'search_return_audit' in message:
+                from glasseek_shared.web_return_audit import fingerprint
+                audit=message['search_return_audit']
+                if (name!='web_search' or not isinstance(audit,dict)
+                    or audit.get('request_sha256')!=fingerprint(args['query'])
+                    or audit.get('rendered_response_sha256')!=hashlib.sha256(text.encode()).hexdigest()
+                    or audit.get('association',{}).get('call_id')!=cid):
+                    raise ValueError('invalid_search_return_audit')
+            if 'merged_response_parts' in message:
+                if name not in ('web_search','web_extract'):raise ValueError('invalid_merged_response_parts')
+                parts=message['merged_response_parts'];merged_response_slices(text,parts)
+                link=next(x for x in messages[call_mi]['call_links'] if x['call_id']==cid)
+                source_ids=link.get('source_call_ids',[])
+                if (not isinstance(source_ids,list) or any(not isinstance(s,str) or not s for s in source_ids)
+                    or len(source_ids)!=len(set(source_ids)) or set(source_ids)!={p['source_call_id'] for p in parts}):
+                    raise ValueError('invalid_merged_response_parts')
+            if 'batch_response_parts' in message:
+                if name not in ('web_search','web_extract') or 'merged_response_parts' in message:
+                    raise ValueError('invalid_batch_response_parts')
+                batch_response_slices(text,message['batch_response_parts'])
+                link=next(x for x in messages[call_mi]['call_links'] if x['call_id']==cid)
+                source_ids=link.get('source_call_ids')
+                if (not isinstance(source_ids,list) or not source_ids
+                    or any(not isinstance(s,str) or not s for s in source_ids)
+                    or len(set(source_ids))!=len(source_ids)
+                    or message.get('source_call_ids')!=source_ids
+                    or link.get('association_scope')!='closed_round_call_batch'):
+                    raise ValueError('invalid_batch_response_parts')
+                native_ids=[p['source_response'].get('source_response_id') for p in message['batch_response_parts']]
+                native_ids=[value for value in native_ids if value is not None]
+                if (any(not isinstance(value,str) for value in native_ids)
+                    or len(set(native_ids))!=len(native_ids)
+                    or (native_ids and set(native_ids)!=set(source_ids))):
+                    raise ValueError('invalid_batch_response_parts')
+            if name == 'web_extract' and require_page_status:
                 results, reason = historical_results(text, args['urls'])
                 if reason:
                     raise ValueError(reason)
@@ -168,6 +212,9 @@ def validate_row(row, expected_schemas):
     if any(acceptance.get(k) != 'passed' for k in REQUIRED_CHECKS):
         raise ValueError('missing_acceptance_stage')
     value = payload(row)
+    if 'supervision' in value:
+        from .curation.supervision import validate_plan
+        validate_plan(value['supervision'],value['messages'],require_learn=True)
     if row.get('content_sha256') != digest(value) or acceptance.get('content_sha256') != digest(value):
         raise ValueError('trajectory_content_hash_mismatch')
     role = row.get('agent_role', 'parent')
