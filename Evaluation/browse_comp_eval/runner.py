@@ -87,6 +87,16 @@ class BrowseCompRunner:
                     spec = unscheduled.popleft()
                     future_to_spec[executor.submit(self._run_one, spec)] = spec
 
+                progress_path = os.environ.get('GLASSEEK_SCHEDULING_STATE')
+                if progress_path:
+                    path = Path(progress_path)
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    temporary = path.with_suffix('.tmp')
+                    temporary.write_text(json.dumps({'unscheduled': len(unscheduled),
+                        'in_flight': len(future_to_spec), 'completed': completed,
+                        'capacity': capacity, 'total_pending_at_start': len(pending)}))
+                    temporary.replace(path)
+
                 if not future_to_spec:
                     try:
                         self._wait_for_capacity_change()
