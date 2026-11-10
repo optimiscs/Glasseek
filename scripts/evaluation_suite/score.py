@@ -44,9 +44,10 @@ def source_import(path, name):
 
 
 def parse_binary_verdict(text):
-    labels = re.findall(r'^\s*(?:\*\*)?correct\s*(?:\*\*)?\s*:\s*(?:\*\*)?\s*(yes|no)\b', text, re.I | re.M)
+    labels = re.findall(r'^[ \t]*(?:\*\*)?correct[ \t]*(?:\*\*)?[ \t]*:[ \t]*(?:\*\*)?[ \t]*(yes|no)[ \t]*(?:\*\*)?[.!]?[ \t]*$', text, re.I | re.M)
     values = {v.lower() for v in labels}
-    if len(values) != 1:
+    declared = re.findall(r'^[ \t]*(?:\*\*)?correct[ \t]*(?:\*\*)?[ \t]*:',text,re.I|re.M)
+    if len(values) != 1 or len(declared) != len(labels):
         raise ValueError('missing or conflicting explicit correct verdict')
     return values.pop()
 
@@ -122,6 +123,7 @@ def main():
     observation={'benchmark':name,'assigned':packet['assigned'],'completed':packet['completed'],
                  'protocol':packet['protocol'],'packet_sha256':sha(a.packet/'manifest.json'),
                  'config':{k:v for k,v in cfg.items() if k not in ('api_key','key')},'status':'running'}
+    observation['scorer_source_sha256']={name:sha(Path(__file__).with_name(name)) for name in ('score.py','judge_transport.py','native_fixes.py')}
     observation['runtime_package_versions']={pkg:importlib.metadata.version(pkg) for pkg in ['openai','pydantic','numpy','pandas','datasets']}
     dump(a.out/'receipt.json',observation)
     try:

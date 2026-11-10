@@ -40,7 +40,7 @@ def test_verdict_parser_accepts_formatting_but_rejects_conflict():
     from scripts.evaluation_suite.score import parse_binary_verdict
     assert parse_binary_verdict('Explanation: clear\n**Correct:** YES')=='yes'
     assert parse_binary_verdict('correct:no\ncorrect: NO')=='no'
-    for text in ['correct: yes\ncorrect: no','The answer is probably correct: yes','correct: maybe']:
+    for text in ['correct: yes\ncorrect: no','The answer is probably correct: yes','correct: maybe','correct: yes/no','correct: yes or no']:
         with pytest.raises(ValueError):parse_binary_verdict(text)
 
 
