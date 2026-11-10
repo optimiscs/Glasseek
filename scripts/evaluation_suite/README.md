@@ -55,7 +55,7 @@ python scripts/evaluation_suite/run.py \
   --run-id suite_smoke2_raw_clm_c5
 ```
 
-`--workers` is a global inference limit across benchmarks and endpoints. Scoring
+Without `--affinity-endpoints`, `--workers` is a global inference limit across benchmarks and endpoints. Scoring
 uses the separate configured judge service and retains native metric scales.
 `--viewer` defaults to enabled; `--no-viewer` disables publishing. Input token
 accounting includes cached input once, output includes reasoning and final text,
@@ -108,3 +108,74 @@ Use `compare_prompts.py --before OLD_GPU0 OLD_GPU1 --after NEW_GPU0 NEW_GPU1
 Missing scores are not interpreted as incorrect answers. Live web variation and
 unfixed model sampling mean a single comparison is observational, not proof of
 statistical significance.
+
+## AREX native research and dataset affinity
+
+Use a **new run ID** when switching protocols. `--research-prompt arex-native`
+switches the system and user templates together and enables the native `finish`
+contract. The original `legacy` mode remains the default so running experiments
+and the existing compact-prompt comparison do not silently change protocol.
+AREX native currently supports Hermes with raw URLs; fixed-corpus BC+ is still
+blocked and opaque-URL modes require a separate finish adapter.
+
+```bash
+PYTHONPATH=Shared:scripts/evaluation_suite .cache/clm-official-env/bin/python \
+  scripts/evaluation_suite/run.py \
+  --phase all --profile base9b \
+  --benchmarks browsecomp,gaia,hle,drbench,liveresearchbench,widesearch \
+  --research-prompt arex-native --context-manager hermes --url-mode raw \
+  --affinity-endpoints http://127.0.0.1:19109/v1,http://127.0.0.1:19110/v1 \
+  --workers 16 --max-tool-calls 120 \
+  --max-reviews 2 --protocol-corrections 3 \
+  --accept-confidence 95 --medium-confidence 90 \
+  --score-schedule trajectory --score-config scripts/evaluation_suite/score.deepseek.json \
+  --viewer --run-id base9b_197_arex_native
+```
+
+With `--affinity-endpoints`, `--workers` means **per endpoint** (16 × 2 = 32).
+Both endpoints must serve the same model configured by `--profile`. Initially,
+whole datasets are assigned by descending size to the least-loaded GPU. Each
+GPU processes one dataset at a time. An idle GPU takes a queued whole dataset
+first; if none remain, it is hot-registered to an active dataset with unclaimed
+tasks. The existing least-active endpoint pool shares that queue at equal per-GPU
+capacity. This is work-conserving, not an exact 50/50 count guarantee for tasks
+with unequal durations. In-flight tasks retain their endpoint; there is only one
+runner/writer per dataset. No tasks are copied or restarted for balancing.
+`affinity.json`, `scheduling/*.json`, and the existing per-result model_base_url
+record assignments. Viewers and per-trajectory graders use the same dataset/run
+identity regardless of which GPU completes a task.
+
+`finish` accepts exactly `answer`, `evidences: [{evidence, url}]`, and finite
+numeric `confidence` in [0,100]. One native tool is allowed per turn, enforced
+both in API requests and before execution. Mixed calls have no side effects.
+Invalid/ordinary-text submissions receive at most three corrections, then fail
+explicitly. Program-observed URLs survive automatic compression. Research
+submissions require evidence; self-contained HLE/GAIA calculations may omit URLs.
+Report/table answer bodies are preserved verbatim. HLE and BrowseComp receive
+their established Explanation / Answer (or Exact Answer) / Confidence envelope;
+GAIA's native answer normalizer remains unchanged.
+
+Candidates below `--accept-confidence` undergo a separate same-model review
+without any reference answers. Medium confidence verifies the current candidate;
+below `--medium-confidence` challenges it and proposes alternatives. Review
+calls consume the same iteration budget and use the same endpoint; at most
+`--max-reviews` reviews are allowed. Unresolved candidates, exhausted budgets,
+and malformed reviews are not silently accepted. Confidence only controls
+stopping, never benchmark correctness. Per-attempt `research-result-aN.json`
+retains candidates, review inputs/outputs, token usage, durations and failure
+reasons; the prediction includes this record for host-side inspection. The
+existing sandbox request/result wire schema is unchanged.
+
+The original BM25 + embedding selector returns source passages, not generated
+summaries. Reader extraction is forced to text, and the old LLM summarizer is
+bypassed. Automatic Hermes compression remains the sole context-management
+entry; tool/network/file isolation and native benchmark graders are unchanged.
+Prompt provenance and the upstream Apache-2.0 license are in
+`Shared/glasseek_shared/research/NOTICE` and `LICENSE-AREX-2`.
+
+Before-change rollback checkpoints (already pushed):
+`checkpoint/pre-arex-start-20261110` and
+`checkpoint/pre-arex-complete-20261110`. Each merged module PR is a merge commit;
+use `git revert -m 1 <merge-sha>` in a new PR to undo one module without rewriting
+main history. The complete tag is a reproducible baseline including all four
+checkpoint PRs; do not force-reset shared main.

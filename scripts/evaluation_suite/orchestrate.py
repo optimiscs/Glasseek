@@ -19,6 +19,11 @@ def execute(args,plans,blocked,names,counts):
     schedule = getattr(args, 'score_schedule', 'trajectory')
     incremental = TrajectoryScorer(args, {name:env for name,_,env in plans}) if schedule == 'trajectory' else None
     queue=list(plans);running={};judging={};slots=args.workers;last=0
+    affinity = None
+    if getattr(args, 'affinity_endpoints', None):
+        from affinity import AffinityScheduler
+        affinity = AffinityScheduler(args.affinity_endpoints.split(','), plans, counts, root, args.workers)
+        queue = []
     def score_one(name,env):
         start=time.monotonic();state=states[name];packet=root/'score-inputs'/name
         pred=args.output_root/'predictions'/(args.run_id+'_'+name)/('suite_'+name)
@@ -46,10 +51,13 @@ def execute(args,plans,blocked,names,counts):
         finally:state['score_seconds']=time.monotonic()-start
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         try:
-            while queue or running or judging:
+            while queue or running or judging or (affinity and affinity.pending):
                 if incremental:incremental.tick()
-                while queue and slots>0:
-                    name,cmd,env=queue.pop(0);budget=min(counts[name],slots,args.workers);slots-=budget
+                if affinity:
+                    queue.extend(affinity.ready())
+                while queue and (affinity or slots>0):
+                    name,cmd,env=queue.pop(0);budget=args.workers if affinity else min(counts[name],slots,args.workers)
+                    if not affinity:slots-=budget
                     cmd=list(cmd);cmd[cmd.index('--workers-per-endpoint')+1]=str(budget)
                     for flag in ('--num-workers','--ramp-start','--ramp-max'):
                         if flag in cmd:cmd[cmd.index(flag)+1]=str(budget)
@@ -60,7 +68,10 @@ def execute(args,plans,blocked,names,counts):
                 for name,(proc,budget,start,log,env) in list(running.items()):
                     code=proc.poll()
                     if code is None:continue
-                    log.close();slots+=budget;del running[name];states[name].update(infer_seconds=time.monotonic()-start,infer_exit=code)
+                    log.close()
+                    if affinity:affinity.finished(name)
+                    else:slots+=budget
+                    del running[name];states[name].update(infer_seconds=time.monotonic()-start,infer_exit=code)
                     if args.phase=='all' and schedule == 'dataset':
                         pred=args.output_root/'predictions'/(args.run_id+'_'+name)/('suite_'+name)
                         if any(load(p,{}).get('status')=='success' for p in pred.glob('conv/*/*.json')):
@@ -70,7 +81,7 @@ def execute(args,plans,blocked,names,counts):
                 for future,name in list(judging.items()):
                     if future.done():future.result();del judging[future];print(json.dumps({'benchmark':name,'stage':states[name]['state']}),flush=True)
                 if time.monotonic()-last>=15:write_report(args,states);last=time.monotonic()
-                if queue or running or judging:time.sleep(1)
+                if queue or running or judging or (affinity and affinity.pending):time.sleep(1)
             if incremental:incremental.drain()
         finally:
             if incremental:incremental.close()

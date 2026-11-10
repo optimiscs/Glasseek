@@ -110,12 +110,37 @@ def infer_command(args, benchmark, count):
             cmd[cmd.index('--custom-system-prompt-file')+1] = path
         else:
             cmd += ['--enable-custom-system-prompt','true','--custom-system-prompt-file',path]
-    if benchmark == 'hle':
+    if benchmark == 'hle' and getattr(args, 'research_prompt', 'legacy') != 'arex-native':
         prompt_path = ROOT/'Evaluation/config/prompts/hle-system.txt'
         if '--custom-system-prompt-file' in cmd:
             cmd[cmd.index('--custom-system-prompt-file')+1] = str(prompt_path)
         else:
             cmd += ['--enable-custom-system-prompt','true','--custom-system-prompt-file',str(prompt_path)]
+    if getattr(args, 'research_prompt', 'legacy') == 'arex-native':
+        if args.url_mode != 'raw':
+            raise ValueError('AREX native currently requires raw URLs; opaque source-ID submission needs a separate adapter')
+        if args.context_manager != 'hermes':
+            raise ValueError('AREX native requires Hermes; CLM/fixed-corpus protocols are unchanged')
+        from glasseek_shared.research.prompts import system_prompt
+        # Both system and user templates switch together; never stack the old
+        # research wrapper or official text-output instructions onto finish.
+        prompt_path = args.output_root / args.run_id / 'prompts' / (benchmark + '.txt')
+        prompt_path.parent.mkdir(parents=True, exist_ok=True)
+        prompt_path.write_text(system_prompt(benchmark))
+        if '--custom-system-prompt-file' in cmd:
+            cmd[cmd.index('--custom-system-prompt-file')+1] = str(prompt_path)
+        else:
+            cmd += ['--enable-custom-system-prompt','true','--custom-system-prompt-file',str(prompt_path)]
+        env.update(GLASSEEK_RESEARCH_PROTOCOL='arex-native', GLASSEEK_RESEARCH_DATASET='suite_' + benchmark,
+                   GLASSEEK_RESEARCH_MAX_REVIEWS=str(args.max_reviews),
+                   GLASSEEK_RESEARCH_CORRECTIONS=str(args.protocol_corrections),
+                   GLASSEEK_RESEARCH_ACCEPT_CONFIDENCE=str(args.accept_confidence),
+                   GLASSEEK_RESEARCH_MEDIUM_CONFIDENCE=str(args.medium_confidence))
+        # The adapted no-subagent prompt does not expose delegation or context tools.
+        cmd[cmd.index('--tool-whitelist')+1] = 'web,code_execution,vision'
+    else:
+        # A caller's shell must not accidentally mix protocols in a legacy run.
+        env.pop('GLASSEEK_RESEARCH_PROTOCOL', None)
     env['GLASSEEK_ANSWER_PROMPT_REGISTRY']=str(args.suite/'prompts/registry.json')
     env['GLASSEEK_MAX_TOOL_CALLS']=str(args.max_tool_calls);env['NO_TOTAL_TIMEOUT']='1'
     # The suite intentionally removes the wall-clock timeout for every profile.
@@ -153,6 +178,12 @@ def build_parser():
     p.add_argument('--output-root',type=Path,default=ROOT/'Evaluation/output/suite5pct')
     p.add_argument('--corpus-config',type=Path);p.add_argument('--score-config',type=Path)
     p.add_argument('--system-prompt-file', type=Path, help='Override the research system prompt; HLE retains its official system prompt. User templates and tool schemas are unchanged.')
+    p.add_argument('--research-prompt', choices=['legacy','arex-native'], default='legacy', help='Switch system + user prompts and native finish as one protocol')
+    p.add_argument('--max-reviews', type=int, default=2)
+    p.add_argument('--protocol-corrections', type=int, default=3)
+    p.add_argument('--accept-confidence', type=float, default=95)
+    p.add_argument('--medium-confidence', type=float, default=90)
+    p.add_argument('--affinity-endpoints', help='Comma-separated same-model endpoints; --workers is PER endpoint. Keep datasets together, then hot-add idle GPUs to pending work.')
     p.add_argument('--score-schedule', choices=['trajectory','dataset','off'], default='trajectory', help='Default: score each completed trajectory during inference')
     p.add_argument('--per-benchmark',type=int,help='Prepare a fixed-seed stratified child release with this many tasks per benchmark')
     p.add_argument('--seed',type=int,help='Sampling seed; defaults to the frozen suite seed and does not seed model decoding')
@@ -179,6 +210,18 @@ def main(argv=None):
     if args.system_prompt_file:
         args.system_prompt_file=args.system_prompt_file.expanduser().resolve()
         if not args.system_prompt_file.is_file() or not args.system_prompt_file.read_text().strip():p.error('--system-prompt-file must contain a nonempty prompt')
+    if args.research_prompt == 'arex-native' and args.system_prompt_file:
+        p.error('--research-prompt arex-native cannot be combined with a system-only override')
+    if args.max_reviews < 0 or args.protocol_corrections < 1:
+        p.error('review budget must be nonnegative; correction budget must be positive')
+    if not 0 <= args.medium_confidence <= args.accept_confidence <= 100:
+        p.error('confidence thresholds must satisfy 0 <= medium <= accept <= 100')
+    if args.affinity_endpoints:
+        from urllib.parse import urlsplit
+        endpoints = [v.strip().rstrip('/') for v in args.affinity_endpoints.split(',')]
+        if len(set(endpoints)) != len(endpoints) or any(urlsplit(e).scheme not in ('http','https') or not urlsplit(e).hostname or urlsplit(e).username for e in endpoints):
+            p.error('--affinity-endpoints requires unique HTTP(S) URLs without credentials')
+        args.affinity_endpoints = ','.join(endpoints)
     if args.score_config:args.score_config=args.score_config.resolve()
     if args.corpus_config:args.corpus_config=args.corpus_config.resolve()
     if args.workers<1:p.error('--workers must be positive')
@@ -222,6 +265,15 @@ def main(argv=None):
              'Evaluation/browse_comp_eval/hermes_client.py','Evaluation/services/clm_worker.py','Evaluation/config/prompts/hle-system.txt',
              'Shared/glasseek_shared/context/official/run.py','Shared/glasseek_shared/hermes/url_registry.py']},
         'corpus_config_sha256':sha(args.corpus_config) if args.corpus_config else None}
+    launch_manifest['research_protocol'] = {'name': args.research_prompt,
+        'max_reviews': args.max_reviews, 'protocol_corrections': args.protocol_corrections,
+        'accept_confidence': args.accept_confidence, 'medium_confidence': args.medium_confidence,
+        'sha256': {str(p.relative_to(ROOT)): sha(p) for p in sorted((ROOT/'Shared/glasseek_shared/research').glob('*.py'))}}
+    launch_manifest['affinity_endpoints'] = args.affinity_endpoints
+    for path in ('Evaluation_backend/agent/conversation_loop.py', 'Evaluation_backend/agent/chat_completion_helpers.py',
+                 'Evaluation_backend/agent/turn_finalizer.py', 'Evaluation_backend/tools/web_tools.py',
+                 'Shared/glasseek_shared/hermes/fetch_provider.py'):
+        launch_manifest['runtime_sha256'][path] = sha(ROOT/path)
     launch_manifest['system_prompt_override']={'path':str(args.system_prompt_file),'sha256':sha(args.system_prompt_file),'hle_policy':'official_unchanged'} if args.system_prompt_file else None
     launch_manifest.update(per_benchmark=args.per_benchmark,seed=args.seed,score_config_sha256=sha(args.score_config) if args.score_config else None)
     if args.corpus_config:

@@ -98,3 +98,19 @@ def test_system_override_preserves_hle_and_user_protocol(tmp_path):
         assert env['GLASSEEK_ANSWER_PROMPT_REGISTRY'].endswith('/prompts/registry.json')
     cmd,_=run.infer_command(args,'hle',2)
     assert cmd[cmd.index('--custom-system-prompt-file')+1].endswith('/prompts/hle-system.txt')
+
+
+def test_arex_switches_prompt_pair_and_leaves_graders_separate(tmp_path, monkeypatch):
+    from browse_comp_eval.hermes_client import build_query
+    args=run.build_parser().parse_args(['--research-prompt','arex-native','--url-mode','raw','--output-root',str(tmp_path)])
+    cmd,env=run.infer_command(args,'hle',1)
+    assert 'arex-native' == env['GLASSEEK_RESEARCH_PROTOCOL']
+    assert cmd[cmd.index('--tool-whitelist')+1]=='web,code_execution,vision'
+    prompt=__import__('pathlib').Path(cmd[cmd.index('--custom-system-prompt-file')+1]).read_text()
+    assert 'finish ALONE' in prompt and 'Your response should be in the following format' not in prompt
+    monkeypatch.setenv('GLASSEEK_RESEARCH_PROTOCOL','arex-native')
+    question=build_query(SimpleNamespace(item=SimpleNamespace(question='unmodified problem')), 'suite_hle')
+    assert question.count('unmodified problem')==1 and 'finish' in question
+    args.url_mode='ref'
+    import pytest
+    with pytest.raises(ValueError,match='raw URLs'):run.infer_command(args,'hle',1)
