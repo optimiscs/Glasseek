@@ -192,3 +192,16 @@ Before-change rollback checkpoints (already pushed):
 use `git revert -m 1 <merge-sha>` in a new PR to undo one module without rewriting
 main history. The complete tag is a reproducible baseline including all four
 checkpoint PRs; do not force-reset shared main.
+
+To continue compatible legacy-prompt experiments after changing the scheduler,
+use a new coordinator `--run-id` and repeat `--resume-run-id OLD_ID` for the
+previous GPU runs. Stop their producers first. Keep the same frozen suite,
+context/URL protocol, system-prompt override, model, tool budget and grader config.
+The CLI validates these settings and retains the old per-dataset save-name,
+workspace, profile/session, predictions and viewer identity. Successful results
+are skipped; interrupted attempts can resume their existing checkpoints. Paid
+score claims and receipts are adopted, including unresolved/error claims, so a
+coordinator change does not silently resubmit grading calls. The launch manifest
+records the source identities and their hashes. Newly introduced datasets use
+the new run ID; report and prompt-comparison tools follow this mapping. This is
+explicit migration rather than bypassing the old launch manifest's code checks.

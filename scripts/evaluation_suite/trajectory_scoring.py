@@ -3,6 +3,7 @@
 A claim is written before calling a paid grader. Interrupted claims are not
 silently retried: they remain available for inspection, preventing duplicate bills.
 """
+from resume_runs import prediction_run, prediction_root
 import concurrent.futures
 import fcntl
 import hashlib
@@ -34,7 +35,7 @@ class TrajectoryScorer:
                 del self.jobs[future]
         # Bound the queue so new results do not create unbounded pending requests.
         for name, env in self.environments.items():
-            pred = self.args.output_root / 'predictions' / (self.args.run_id+'_'+name) / ('suite_'+name)
+            pred = prediction_root(self.args,name)
             for path in sorted(pred.glob('conv/*/*.json')):
                 row = load(path, {})
                 if row.get('status') != 'success' or not row.get('final_assistant_valid') or not str(row.get('model_response', '')).strip():

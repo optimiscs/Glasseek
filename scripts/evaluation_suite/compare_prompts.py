@@ -16,7 +16,11 @@ def percentile(values, q):
 def cases(root, runs):
     result={}
     for run in runs:
-        for folder in (root/'predictions').glob(run+'_*/suite_*'):
+        folders = set((root/'predictions').glob(run+'_*/suite_*'))
+        manifest = load(root/run/'launch.json', {})
+        for benchmark, identity in manifest.get('prediction_runs', {}).items():
+            folders.add(root/'predictions'/identity/('suite_'+benchmark))
+        for folder in sorted(folders):
             benchmark=folder.name.removeprefix('suite_')
             for path in folder.glob('conv/*/*.json'):
                 row=load(path,{})
