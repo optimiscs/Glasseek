@@ -43,6 +43,14 @@ def source_import(path, name):
     spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);return m
 
 
+def parse_binary_verdict(text):
+    labels = re.findall(r'^\s*(?:\*\*)?correct\s*(?:\*\*)?\s*:\s*(?:\*\*)?\s*(yes|no)\b', text, re.I | re.M)
+    values = {v.lower() for v in labels}
+    if len(values) != 1:
+        raise ValueError('missing or conflicting explicit correct verdict')
+    return values.pop()
+
+
 async def short_answers(name, records, source, cfg, out):
     from openai import AsyncOpenAI
     client=AsyncOpenAI(api_key=os.environ[cfg.get('key_env','OPENAI_API_KEY')],base_url=cfg.get('base_url') or None,timeout=300,max_retries=1)
@@ -67,12 +75,17 @@ async def short_answers(name, records, source, cfg, out):
                     data=verdict.model_dump();correct=data['correct']=='yes'
                 else:
                     response=await client.chat.completions.create(model=cfg['model'],messages=[{'role':'user','content':prompt}],max_completion_tokens=4096)
-                    text=response.choices[0].message.content or '';match=re.search(r'correct: (yes|no)',text)
-                    if not match:raise ValueError('unparseable judge verdict')
-                    data={'raw':text,'correct':match.group(1)};correct=match.group(1)=='yes'
+                    text=response.choices[0].message.content or ''
+                    dump(out/(r['opaque_id']+'.response.json'),{'content':text,'finish_reason':response.choices[0].finish_reason})
+                    if response.choices[0].finish_reason == 'length':raise ValueError('judge output truncated')
+                    verdict=parse_binary_verdict(text)
+                    data={'raw':text,'correct':verdict};correct=verdict=='yes'
                 result={'id':r['id'],'status':'scored','correct':correct,'judge':data,
                         'usage':response.usage.model_dump() if response.usage else None}
-            except Exception as e:result={'id':r['id'],'status':'unscored','error_type':type(e).__name__}
+            except Exception as e:
+                detail=e.errors(include_url=False,include_input=False,include_context=False) if hasattr(e,'errors') else None
+                result={'id':r['id'],'status':'unscored','error_type':type(e).__name__,
+                        'validation_errors':detail,'raw_responses':'api_responses.jsonl'}
             dump(out/(r['opaque_id']+'.json'),result);results.append(result)
     await asyncio.gather(*(one(r) for r in records));await client.close()
     return results
@@ -137,13 +150,18 @@ def main():
                  '--reference',str(a.packet/'reference.json'),'--source',str(authors/'gaia-leaderboard'),'--out',str(a.out/'author')]
             subprocess.run(cmd,check=True)
         elif name=='drbench':
+            from native_fixes import clean_author_checkout
+            clean_authors=a.out/'author-sources'
+            clean_authors.mkdir()
+            revision=clean_author_checkout(authors/'deep-research-bench',clean_authors/'deep-research-bench')
+            observation['author_execution_revision']=revision
             cmd=[sys.executable,str(quest/'evaluation/official_dataset/run.py'),'drbench','--raw',str(a.packet/'raw.jsonl'),
-                '--query',str(a.packet/'query.jsonl'),'--sources-dir',str(authors),'--runs-dir',str(a.out),
+                '--query',str(a.packet/'query.jsonl'),'--sources-dir',str(clean_authors),'--runs-dir',str(a.out),
                 '--out',str(a.out/'author'),'--workers',str(cfg.get('workers',1))]
             if cfg.get('api_config'):cmd+=['--api-config',cfg['api_config']]
             cmd+=['--fact-stat-runner',str(Path(__file__).with_name('native_fixes.py'))]
-            observation['runtime_fixes']=['native-edge-cases-v1:fact-zero-denominator']
-            subprocess.run(cmd,check=True)
+            observation['runtime_fixes']=['native-edge-cases-v1:fact-zero-denominator','clean-pinned-author-checkout']
+            subprocess.run(cmd,check=True,env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'})
         elif name=='liveresearchbench':
             sys.path.insert(0,str(authors/'liveresearchbench'))
             os.chdir(authors/'liveresearchbench')

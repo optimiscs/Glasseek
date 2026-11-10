@@ -104,7 +104,7 @@ _VISIBLE_RESULT_FIELDS = frozenset(
         "title",
     }
 )
-_WORD_RE = re.compile(r"[a-z0-9]+", re.IGNORECASE)
+_WORD_RE = re.compile(r"[\u3400-\u9fff]|[^\W_\u3400-\u9fff]+", re.UNICODE)
 _QUESTION_STOP_WORDS = frozenset(
     """
     a an the and or of to in on at by for from with as is was were be been being
@@ -122,7 +122,9 @@ _STRONG_LEAK_MARKER_RE = re.compile(
 _AGENT_EVALUATION_CONTEXT_RE = re.compile(
     r"(?:web\s*agent|search\s*agent|agentic\s*search|deep\s*research\s*agent|"
     r"benchmark\s*trajectory|reasoning\s*trajectory|evaluation\s*trace|"
-    r"context\s*folding|agentfold|metaagent|fineverify|\bkarl\b|\bresum\b)",
+    r"context\s*folding|agentfold|metaagent|fineverify|\bkarl\b|\bresum\b|"
+    r"multi[ -]agent\s+(?:llm\s+)?(?:systems?|learning)|"
+    r"optimized\s+workforce\s+learning)",
     re.IGNORECASE,
 )
 _WEAK_ANSWER_MARKER_RE = re.compile(
@@ -270,7 +272,9 @@ def _contains_question_leak(value: Any, question: str) -> bool:
     overlap = _question_overlap(question, result_text)
 
     # A: the full normalized question, or an almost-complete paraphrase.
-    criterion_a = overlap.exact_normalized_question_substring or (
+    # Short names are normal evidence, not a leaked question. Still require
+    # explicit leak context below for short prompts; do not disable the guard.
+    criterion_a = (overlap.question_token_count >= 6 and overlap.exact_normalized_question_substring) or (
         overlap.fivegram_recall >= 0.80
         and overlap.question_token_recall >= 0.85
     )
@@ -299,6 +303,7 @@ def _contains_question_leak(value: Any, question: str) -> bool:
             and overlap.question_token_recall >= 0.20
         )
         or overlap.fivegram_recall >= 0.10
+        or (overlap.question_token_count >= 2 and overlap.exact_normalized_question_substring)
     )
     # D-agent: evaluation/agent traces are suspicious at moderate overlap.
     criterion_d_agent = agent_evaluation_context and (
@@ -316,6 +321,9 @@ def _contains_question_leak(value: Any, question: str) -> bool:
         )
         or overlap.fivegram_recall >= 0.25
     )
+    # A research-agent paper quoting a substantial fragment of this task is
+    # not an independent source, even if search only returns a short excerpt.
+    criterion_d_excerpt = agent_evaluation_context and overlap.longest_contiguous_match >= 6
     return (
         criterion_a
         or criterion_b
@@ -323,6 +331,7 @@ def _contains_question_leak(value: Any, question: str) -> bool:
         or criterion_d_strong
         or criterion_d_agent
         or criterion_d_weak
+        or criterion_d_excerpt
     )
 
 

@@ -445,6 +445,9 @@ class HermesClient:
                 error = final_assistant_error = 'Persisted final answer differs from accepted finish'
                 model_response = ''
         mcp_registration_error = ""
+        tool_budget_exhausted = any(
+            m.get('role') == 'tool' and '"status":"tool_budget_denied"' in str(m.get('content','')).replace(' ', '')
+            for m in (session or {}).get('messages', []))
         if "browsecomp-plus-bm25" in self.config.toolsets:
             mcp_registration_error = browsecomp_plus_mcp_registration_error(
                 attempt_agent_log
@@ -469,6 +472,9 @@ class HermesClient:
             "status": status,
             "error": error,
             "failure_type": failure_type,
+            "termination_reason": 'tool_budget_exhausted' if tool_budget_exhausted else 'generation_truncated' if 'length' in str(final_assistant_error) else status,
+            "task_solved": None,
+            "harness_revision": env.get('GLASSEEK_HARNESS_REVISION'),
             "attempt_consumed": attempt_consumed,
             "trace_complete": trace_complete,
             "returncode": returncode,
@@ -535,6 +541,14 @@ class HermesClient:
             ("code_execution.tool_access", "none"),
             ("delegation.child_timeout_seconds", "900"),
         ]
+        if self.config.dataset.startswith('suite_') and 'vision' in self.config.toolsets:
+            # Pin auxiliary vision to the same evaluated model/route. Never
+            # silently fall back to a different external vision model.
+            configs.extend([('auxiliary.vision.provider','custom'),
+                            ('auxiliary.vision.base_url',self.config.base_url),
+                            ('auxiliary.vision.model',self.config.model),
+                            ('auxiliary.vision.api_key',self.config.api_key),
+                            ('auxiliary.vision.timeout','180')])
         if "browsecomp-plus-bm25" in self.config.toolsets:
             # Qwen models are excluded from Hermes' default "auto" tool-use
             # guidance. Enable it only for BrowseComp-Plus BM25 profiles so a
@@ -1316,6 +1330,16 @@ def build_query(spec: RunSpec, dataset: str = "") -> str:
     if dataset == "suite_hle":
         return spec.item.question
     _, answer_prompt = load_answer_prompt(dataset)
+    if dataset.startswith('suite_'):
+        task_type = 'Produce the complete requested report, with traceable citations.' if dataset in ('suite_drbench','suite_liveresearchbench') else (
+            'Return the complete requested table; verify coverage, rows, columns and units.' if dataset == 'suite_widesearch' else
+            'Resolve the requested facts or calculation, respecting every constraint and the requested time frame.')
+        return (f'{task_type}\nUse only available tools. Search to resolve specific evidence gaps; '
+                'read source text for critical claims. Do not treat benchmark answers or other agents\' '
+                'solutions as evidence. Change approach when a search fails, and stop once the task '
+                'is adequately supported; no fixed number of searches is required. '
+                'If evidence remains insufficient, state the limitation instead of inventing an answer.\n\n'
+                f'Question:\n{spec.item.question}\n\n{answer_prompt}')
     return (
         f"{RESEARCH_TASK_PREAMBLE}\n\n"
         f"{RESEARCH_GUIDANCE}\n\n"

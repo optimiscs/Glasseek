@@ -131,6 +131,7 @@ def write_report(args,states):
             elapsed=max(row.get('wall_seconds') or row.get('duration_seconds') or 0,sum(a.get('duration_seconds') or 0 for a in row.get('retry_attempts',[])))
             if row.get('workspace_dir'):elapsed+=(load(Path(row['workspace_dir'])/'continuation.json',{}) or {}).get('previous_wall_seconds',0)
             item={'benchmark':name,'question_id':row.get('question_id'),'status':row.get('status'),
+                'termination_reason':row.get('termination_reason'),
                 'duration_seconds':elapsed,'prediction_path':str(p),**usage}
             cases.append(item);group.append(item)
         score=Path(state['score_dir']) if state.get('score_dir') else None
@@ -157,7 +158,14 @@ def write_report(args,states):
         totals={k:sum(r.get(k) or 0 for r in group) if any(r.get(k) is not None for r in group) else None for k in ['input_tokens','output_tokens','cached_input_tokens','context_edits','context_edits_substantial']}
         tools=collections.Counter()
         for r in group:tools.update(r['tool_calls'])
+        grade_counts=collections.Counter();dimension_counts=collections.Counter()
+        for path in pred.glob('judge_official/*/*.json'):
+            evaluation=load(path,{}).get('evaluation',{})
+            grade_counts[evaluation.get('status','pending')]+=1
+            for metric in evaluation.get('metrics',[]):
+                if metric.get('value') is not None:dimension_counts[metric['key']]+=1
         rows.append({'benchmark':name,'assigned':state['assigned'],'completed':len(group),'successful':sum(r['status']=='success' for r in group),
+            'scoring_status_counts':dict(grade_counts),'dimension_coverage':dict(dimension_counts),
             'scored':scored,'state':state['state'],'reason':state.get('reason'),'native_metrics':metrics,
             'inference_wall_seconds':state.get('infer_seconds'),'judge_wall_seconds':state.get('score_seconds'),
             'case_wall_seconds_sum':sum(r.get('duration_seconds') or 0 for r in group),
@@ -166,7 +174,7 @@ def write_report(args,states):
         'notes':['native metrics retain original scales; no blended accuracy','input includes cache once; output includes reasoning and final','bash is physical calls; web_search/web_extract are semantic subcalls, do not add these to bash','missing measurements remain null; judge errors are unscored']})
     jsonl(root/'cases.jsonl',cases)
     with (root/'summary.csv').open('w') as f:
-        fields=['benchmark','assigned','completed','successful','scored','state','reason','inference_wall_seconds','judge_wall_seconds','case_wall_seconds_sum','input_tokens','output_tokens','cached_input_tokens','context_edits','context_edits_substantial','judge_input_tokens','judge_output_tokens','usage_complete_cases','tool_calls','native_metrics']
+        fields=['benchmark','assigned','completed','successful','scored','scoring_status_counts','dimension_coverage','state','reason','inference_wall_seconds','judge_wall_seconds','case_wall_seconds_sum','input_tokens','output_tokens','cached_input_tokens','context_edits','context_edits_substantial','judge_input_tokens','judge_output_tokens','usage_complete_cases','tool_calls','native_metrics']
         writer=csv.DictWriter(f,fieldnames=fields);writer.writeheader()
         for row in rows:writer.writerow({k:json.dumps(v,ensure_ascii=False) if isinstance(v,dict) else v for k,v in row.items()})
 

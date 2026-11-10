@@ -216,3 +216,26 @@ variants from the same incremental release. Training-overlap exclusions still
 apply, and unavailable quotas are reported as shortfalls rather than refilled
 with excluded questions. Run the release through the existing `run.py --suite`
 entrypoint and combine old and incremental run IDs with `compare_prompts.py`.
+
+### Harness correction provenance
+
+Runs now record `harness_revision` and each trajectory records its termination
+reason independently of correctness. Tool-budget exhaustion does not imply the
+task is solved; native judges still score the preserved final answer. Legacy
+system variants share task-appropriate user guidance; HLE keeps its official
+system and unwrapped question. Compare only explicitly paired task IDs and
+report runtime revisions when combining historical and new runs.
+
+Vision is pinned to the evaluated model and endpoint, with an actual image
+preflight before inference. Retrieval rejects recognized challenge pages and
+empty source content. The leak guard retains multilingual question tokens and
+blocks matching solution excerpts in agent-evaluation papers; network and host
+file restrictions remain unchanged.
+
+DRBench executes a clean checkout of the pinned author commit; tracked source
+changes still fail verification. Structured judge responses are saved before
+validation, with at most one schema-correction request using the unchanged
+rubric. Invalid/conflicting verdicts remain unscored. `scoring_status_counts`
+and `dimension_coverage` distinguish partial evaluation from complete scores.
+For targeted replay, `smoke.prepare(..., selected_ids={...})` freezes an explicit
+subset without modifying the parent release or existing predictions.
