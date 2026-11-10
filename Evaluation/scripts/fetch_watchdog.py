@@ -69,7 +69,7 @@ def _probe_target(base_url: str, timeout: float, target_url: str) -> None:
         raise RuntimeError(str(fetch.get("error") or "empty content"))
 
 
-def probe(base_url: str, timeout: float, target_urls: list[str]) -> None:
+def probe(base_url: str, timeout: float, target_urls: list[str], *, functional_timeout: float | None = None) -> None:
     health = _json_request(
         urllib.request.Request(f"{base_url.rstrip('/')}/health", method="GET"),
         timeout,
@@ -83,7 +83,7 @@ def probe(base_url: str, timeout: float, target_urls: list[str]) -> None:
     failures: list[str] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(target_urls)) as executor:
         future_to_url = {
-            executor.submit(_probe_target, base_url, timeout, target_url): target_url
+            executor.submit(_probe_target, base_url, functional_timeout if functional_timeout is not None else timeout, target_url): target_url
             for target_url in target_urls
         }
         for future in concurrent.futures.as_completed(future_to_url):

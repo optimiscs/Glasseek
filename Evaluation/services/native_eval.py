@@ -40,7 +40,10 @@ def terminate(process, grace=10):
 
 def supervise(command, args, runner):
     targets = [x.strip() for x in args.fetch_watchdog_target.split(',') if x.strip()]
-    probe(args.fetch_server_url, 30, targets)
+    # The fetch pool's client budget includes admission and upstream retries.
+    # Keep health checks short without aborting legitimate fetches at 30s.
+    functional_timeout = args.fetch_watchdog_timeout
+    probe(args.fetch_server_url, 30, targets, functional_timeout=functional_timeout)
     print('Fetch watchdog preflight passed.', flush=True)
     process = subprocess.Popen(command, cwd=EVALUATION, start_new_session=True)
     handlers = {}
@@ -62,7 +65,7 @@ def supervise(command, args, runner):
                 checks.append(('functional', 30, targets, 2)); last_functional = now
             for kind, timeout, urls, limit in checks:
                 try:
-                    probe(args.fetch_server_url, timeout, urls)
+                    probe(args.fetch_server_url, timeout, urls, functional_timeout=functional_timeout)
                     failures[kind] = 0
                 except Exception as exc:
                     failures[kind] += 1
@@ -104,8 +107,12 @@ def main(argv=None):
     p.add_argument('--expected-questions', type=int)
     p.add_argument('--fetch-server-url', required=True)
     p.add_argument('--fetch-watchdog-target', default='https://example.com')
+    p.add_argument('--fetch-watchdog-timeout', type=float, default=180,
+                   help='Functional fetch budget in seconds; matches the fetch pool client timeout (health checks remain short).')
     p.add_argument('--prepare-only', action='store_true')
     args, extra = p.parse_known_args(argv)
+    if not 0 < args.fetch_watchdog_timeout < float('inf'):
+        p.error('--fetch-watchdog-timeout must be finite and positive')
     configure_url_arguments(args)
     runner = build_parser().parse_args(extra)
     if args.expected_questions is not None:

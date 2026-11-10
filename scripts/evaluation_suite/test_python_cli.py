@@ -53,7 +53,7 @@ class PythonCLITests(unittest.TestCase):
 
     def test_watchdog_preflight_failure_never_starts_inference(self):
         import native_eval
-        args = SimpleNamespace(fetch_server_url='http://local', fetch_watchdog_target='https://example.com')
+        args = SimpleNamespace(fetch_server_url='http://local', fetch_watchdog_target='https://example.com', fetch_watchdog_timeout=180)
         with patch.object(native_eval, 'probe', side_effect=RuntimeError('unhealthy')), \
              patch.object(native_eval.subprocess, 'Popen') as popen:
             with self.assertRaises(RuntimeError):native_eval.supervise(['fake'], args, None)
@@ -62,12 +62,12 @@ class PythonCLITests(unittest.TestCase):
     def test_watchdog_stops_group_and_marks_active_cases(self):
         import native_eval
         from itertools import count
-        args = SimpleNamespace(fetch_server_url='http://local', fetch_watchdog_target='')
+        args = SimpleNamespace(fetch_server_url='http://local', fetch_watchdog_target='', fetch_watchdog_timeout=180)
         runner = SimpleNamespace(data_path='input.jsonl', output_root='out', save_name='r',
                                  model='m', dataset='d', numbered_output=True)
         process = SimpleNamespace(pid=123, poll=lambda: None)
         ticks = count(0, 11)
-        def health(*unused):
+        def health(*unused, **kwargs):
             if health.calls:
                 raise RuntimeError('unhealthy')
             health.calls += 1
