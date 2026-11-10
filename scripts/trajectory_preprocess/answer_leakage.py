@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import re
 import sys
+from glasseek_shared.historical_tools import load, search_sections
 
 PLUGIN = Path(__file__).resolve().parents[2] / 'Evaluation_backend/plugins/browse_comp_guard/__init__.py'
 SPEC = importlib.util.spec_from_file_location('_curation_browsecomp_guard', PLUGIN)
@@ -16,26 +17,33 @@ guard = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = guard
 SPEC.loader.exec_module(guard)
 PLUGIN_SHA256 = hashlib.sha256(PLUGIN.read_bytes()).hexdigest()
-GOLD = re.compile(r'(?i)(?:ground[ _-]?truth|reference[ _-]?answer|gold(?:en)?[ _-]?answer|answer[ _-]?key|expected[ _-]?answer|标准答案|参考答案|标注答案|答案库)')
+GOLD = re.compile(r'''(?im)(?:^|[\n{,])\s*["']?(?:ground[ _-]?truth|reference[ _-]?answers?|gold(?:en)?[ _-]?answer|answer[ _-]?key|expected[ _-]?answer|标准答案|参考答案|标注答案|答案库)["']?\s*[:=：]\s*\S''')
+ANSWER_RESOURCE = re.compile(r'''(?ix)(?:\[\s*(?:answer[ _-]?keys?|reference[ _-]?answers?|标准答案|参考答案|标注答案)\s*\]\s*\(|(?:[/=?&][^\s<>"'`]{0,300}[_/.-])?(?:answer[_-]?keys?|reference[_-]?answers?|ground[_-]?truth|gold[_-]?answers?)(?:\.(?:jsonl?|csv|parquet|txt|html?|pdf))?(?=$|[\s"'<>)\]\x60&#?]))''')
 VISIBLE = guard._VISIBLE_RESULT_FIELDS | {'summary', 'answer', 'reference_answer', 'ground_truth', 'question', 'evidence'}
-IGNORED = {'query','queries','request','request_args','arguments','metadata','diagnostics','url','urls'}
+IGNORED = {'query','queries','goal','source_goal','request','request_args','arguments','metadata','diagnostics','url','urls'}
 
 
 def visible_text(text):
-    body = text.strip()
-    if body.startswith('<tool_response>'):
-        end = body.rfind('</tool_response>')
-        if end >= 0: body = body[len('<tool_response>'):end]
-    try: value = json.loads(body)
-    except (ValueError, TypeError): return body
-    def walk(value, visible=False):
-        if isinstance(value, str): return value if visible else ''
-        if isinstance(value, list): return '\n'.join(walk(v, visible) for v in value)
+    try: value = load(text)
+    except ValueError: return text
+    def walk(value, visible=False, depth=0):
+        if depth>32: raise ValueError('answer_structure_depth_limit')
+        if isinstance(value, str):
+            if value.lstrip().startswith(('{','[','"')):
+                try: nested=load(value)
+                except ValueError: nested=value
+                if not isinstance(nested,str):return walk(nested,visible,depth+1)
+            sections=search_sections(value)
+            if sections is not None:
+                return '\n'.join(body for _,body,_ in sections) if visible else ''
+            header=re.match(r'^\s*The useful information in https?://\S+ for user goal [\s\S]*? as follows:\s*\n',value)
+            return (value[header.end():] if header else value) if visible else ''
+        if isinstance(value, list): return '\n'.join(walk(v, visible,depth+1) for v in value)
         if isinstance(value, dict):
             return '\n'.join((str(k)+': ' if str(k).lower() in {'answer','reference_answer','ground_truth','question'} else '')+
-                walk(v, visible or str(k).lower() in VISIBLE) for k,v in value.items() if str(k).lower() not in IGNORED)
+                walk(v, visible or str(k).lower() in VISIBLE or str(k).lower()=='result',depth+1) for k,v in value.items() if str(k).lower() not in IGNORED)
         return ''
-    return walk(value)
+    return walk(value,isinstance(value,str))
 
 
 def question_text(item):
@@ -48,9 +56,11 @@ def question_text(item):
 
 
 def external_signals(text, question, max_compare_chars=120000):
-    body = visible_text(text)
+    try: body = visible_text(text)
+    except ValueError:
+        return [('coverage.answer_structure_depth',{'limit':32})]
     signals = []
-    marker = bool(GOLD.search(body))
+    marker = bool(GOLD.search(body) or ANSWER_RESOURCE.search(body))
     if guard._BENCHMARK_RE.search(body) or marker:
         signals.append(('benchmark.reference', {'scope':'external_evidence', 'gold_marker':marker}))
     if not question.strip(): return signals
@@ -70,7 +80,7 @@ def external_signals(text, question, max_compare_chars=120000):
     if len(normalized_question) >= 40 and normalized_question in normalized_body:
         overlap = True
     if overlap:
-        answer_marker = marker or bool(re.search(r'(?im)(?:^|\n)\s*(?:answer|答案)\s*:', body))
+        answer_marker = marker or bool(re.search(r'(?im)(?:^|\n)\s*(?:answer|答案)\s*[:：]', body))
         signals.append(('benchmark.current_question_answer' if answer_marker else 'benchmark.question_overlap',
                         {'question_overlap':True,'answer_marker':answer_marker,
                          'scope':'external_visible_content','causality':'exposure signal; use by assistant requires review'}))

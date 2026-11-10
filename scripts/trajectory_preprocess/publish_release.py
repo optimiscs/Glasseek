@@ -52,6 +52,10 @@ def publish(source, acceptance_path, output):
                         raise ValueError('acceptance_missing_or_not_passed')
                     if set(candidate.get('review_flags', [])) - set(review.get('resolved_review_flags', [])):
                         raise ValueError('unresolved_review_flags')
+                    from normalize_training_text import normalize
+                    normalized=normalize(candidate, tool_schemas=tools)
+                    if normalized['text_normalization']['holds'] or digest(payload(normalized))!=digest(payload(candidate)):
+                        raise ValueError('training_text_normalization_required')
                     value = payload(candidate)
                     if review.get('content_sha256') != digest(value):
                         raise ValueError('stale_acceptance_content_hash')
@@ -72,6 +76,8 @@ def publish(source, acceptance_path, output):
                 row['messages'] = json.dumps(row['messages'], ensure_ascii=False)
                 row['tools'] = json.dumps(row['tools'], ensure_ascii=False)
                 row['provenance'] = json.dumps(row['provenance'], ensure_ascii=False)
+                # Keep a stable Arrow column even if legacy rows have no plan.
+                row['supervision'] = json.dumps(row['supervision'],ensure_ascii=False) if 'supervision' in row else None
                 buffer.append(row)
                 if len(buffer) >= 64:
                     flush()

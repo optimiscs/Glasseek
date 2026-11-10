@@ -5,13 +5,17 @@ import os
 import re
 import urllib.request
 import urllib.error
-from html import unescape
 from glasseek_shared.extract_protocol import validate_urls
+from glasseek_shared.search_protocol import validate_queries,decode_query_array
+from glasseek_shared.hermes.qwen_xml_protocol import has_batch_wrapper
 from glasseek_shared.hermes.tool_errors import ToolFailure,exception_failure,http_json
 
 TOOLS = [
     {"type": "function", "function": {"name": "web_search", "description": "Search the web.",
-     "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}},
+     "parameters": {"type": "object", "properties": {
+         "query": {"oneOf": [{"type":"string","minLength":1,"pattern":"\\S"},
+             {"type":"array","items":{"type":"string","minLength":1,"pattern":"\\S"},"minItems":1,"maxItems":5}]},
+         "limit": {"type":"integer","minimum":1,"maximum":100,"default":5}}, "required": ["query"]}}},
     {"type": "function", "function": {"name": "web_extract", "description": "Read 1 to 5 webpages. Returns one results array with URL, content and error per page.",
      "parameters": {"type": "object", "properties": {"urls": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 5},
          "goal": {"type": "string", "description": "Optional objective for selecting evidence from the pages."}}, "required": ["urls"]}}},
@@ -45,6 +49,7 @@ def request_json(url, body, headers=None, timeout=60):
 
 
 def parse_tool_calls(text: str) -> list[dict]:
+    if has_batch_wrapper(text):raise ValueError('Noncanonical Qwen tool batch wrapper')
     # Ignore tool-like text in reasoning. Only calls after the last think block execute.
     text = text.rsplit("</think>", 1)[-1]
     calls = []
@@ -60,12 +65,21 @@ def parse_tool_calls(text: str) -> list[dict]:
             if not match:
                 raise ValueError("Malformed Qwen tool call")
             name, params = match.groups()
-            args = {key: unescape(value.strip()) for key, value in
-                    re.findall(r"<parameter=([^>]+)>\s*(.*?)\s*</parameter>", params, re.S)}
+            args = {}
+            for key,value in re.findall(r"<parameter=([^>]+)>(.*?)</parameter>",params,re.S):
+                # Qwen parameters are raw text, not XML-escaped strings. Remove
+                # only the optional framing newline used by its chat template.
+                if value.startswith('\n'):value=value[1:]
+                if value.endswith('\n'):value=value[:-1]
+                if key in args:raise ValueError('Duplicate Qwen tool parameter')
+                args[key]=value
         if not isinstance(args, dict):
             raise ValueError("Tool arguments must be an object")
         if name == 'web_extract' and isinstance(args.get('urls'), str):
             args['urls'] = json.loads(args['urls'])
+        if name=='web_search' and 'query' in args:args['query']=decode_query_array(args['query'])
+        if name=='web_search' and isinstance(args.get('limit'),str) and re.fullmatch(r'[0-9]+',args['limit']):
+            args['limit']=int(args['limit'])
         calls.append({"name": name, "arguments": args})
     if "<tool_call>" in text and not calls:
         raise ValueError("Unclosed tool call")
@@ -91,6 +105,26 @@ class WebTools:
         self.search_timeout = float(os.environ.get('GLASSEEK_SEARCH_POOL_TIMEOUT', timeout))
 
     async def execute(self, call):
+        if call['name'] == 'web_search':
+            call={**call,'arguments':{**call['arguments'],'query':decode_query_array(call['arguments'].get('query'))}}
+            try:
+                queries = validate_queries(call['arguments'].get('query'))
+            except ValueError as exc:
+                return ToolFailure(str(exc),'invalid_tool_arguments')
+            if isinstance(call['arguments']['query'], list):
+                async def search_one(query):
+                    args={**call['arguments'],'query':query}
+                    try:
+                        raw=await asyncio.to_thread(self._execute,{'name':'web_search','arguments':args})
+                    except Exception as exc:
+                        raw=exception_failure(exc)
+                    if isinstance(raw,ToolFailure):result=raw.payload
+                    else:
+                        try:result=json.loads(raw)
+                        except (ValueError,TypeError):result=raw
+                    return {'query':query,'result':result}
+                result=json.dumps({'results':await asyncio.gather(*(search_one(q) for q in queries))},ensure_ascii=False)
+                return self.url_registry.observe('web_search',result)
         if self.url_mode == 'raw' and call['name'] != 'web_extract':
             return await asyncio.to_thread(self._execute, call)
         try:
@@ -134,9 +168,12 @@ class WebTools:
     def _execute(self, call):
         name, args = call["name"], call["arguments"]
         try:
+            if os.environ.get('GLASSEEK_FIXED_CORPUS_CONFIG'):
+                from glasseek_shared.fixed_corpus import execute
+                return execute(call,self.max_chars,self.timeout)
             if name == "web_search":
                 request = urllib.request.Request(self.search_endpoint,
-                    data=json.dumps({'q': args['query'], 'num': 10}).encode(),
+                    data=json.dumps({'q': args['query'], 'num': args.get('limit',5)}).encode(),
                     headers={'Content-Type': 'application/json'})
                 # Internal service requests must not inherit an external proxy.
                 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))

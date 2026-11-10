@@ -10,15 +10,13 @@ import hashlib
 import json
 from pathlib import Path
 import re
-import sys
+import time
 
 from client import Client, digest, public_config, save
 from ingest import Dedup, harness_plan, normalize, records
 
 ROOT = Path(__file__).resolve().parents[2]
-PILOT = ROOT / 'scripts/trajectory_preprocess_pilot'
-sys.path.insert(0, str(PILOT))
-import run_v3 as policy
+import policy
 
 
 def append(path, value):
@@ -27,7 +25,9 @@ def append(path, value):
 
 
 def policy_hash():
-    files = [*[p for p in Path(__file__).resolve().parent.glob('*.py') if not p.name.startswith('test_')], PILOT/'run_v3.py', PILOT/'run_v2.py']
+    files = [p for p in Path(__file__).resolve().parent.glob('*.py') if not p.name.startswith('test_')]
+    files += list((ROOT/'Shared/glasseek_shared/curation').glob('*.py'))
+    files += [Path(__file__).with_name('safety_policy.json')]
     return digest({str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(files)})
 
 
@@ -80,23 +80,62 @@ def prepare(config, out, limit):
 
 
 def annotate_one(item, client):
+    from eligibility import assess
+    import claim_audit
+    import segment_audit
+    import quality_gate
+    from selection import describe
+    from glasseek_shared.curation.evidence import enrich
+    from glasseek_shared.curation.schema import obj,enum,array,TEXT
+    started=time.monotonic()
+    result={'id':item['id'],'source':item['source'],'status':'annotation_error',
+            'offline_quality_candidate':False,'training_ready':False}
     try:
-        if item['program_errors']: raise ValueError('Structural errors require repair before LLM annotation')
-        def call(stage, prompt, validator):
-            return client.call(stage, item['id'], prompt, policy.SYSTEM, validator)
-        inventory = call('inventory',policy.inventory_prompt(item),lambda v:policy.validate_inventory(v,item))
-        audit = call('audit',policy.audit_prompt(item,inventory),lambda v:policy.validate_audit(v,item,inventory))
-        review = call('review',policy.review_prompt(inventory,audit),lambda v:policy.validate_review(v,audit))
+        canonical=client.canonical[item['id']]
+        gate=assess(item,canonical,client.scanner)
+        result['eligibility']=gate
+        if gate['status']!='eligible':
+            result.update(status='routed',decision=gate['status'])
+            return result
+        inventory = claim_audit.inventory(item,client)
+        audit = claim_audit.audit(item,inventory,client)
+        review = claim_audit.review(item,inventory,audit,client)
         reviewed = policy.reviewed_audit(audit,review)
-        behaviors = call('behaviors',policy.behavior_prompt(item,inventory,reviewed),
-                         lambda v:policy.validate_behaviors(v,item,reviewed) if hasattr(policy,'validate_behaviors') else policy.v2.validate_behaviors(v,item))
-        result = policy.compute_result(item,inventory,audit,review,behaviors)
+        behaviors = claim_audit.behaviors(item,inventory,reviewed,client)
+        result.update(policy.compute_result(item,inventory,audit,review,behaviors))
+        result['inventory']=inventory
+        result['evidence_index']=enrich(policy.evidence_catalog(item))
         result['raw_behaviors'] = behaviors
+        # Preserve the previous independent six-check acceptance gate as well.
+        result['automatic_acceptance_passed']=False
+        if result['offline_quality_candidate']:
+            evidence=[r['span_id'] for r in policy.evidence_catalog(item)]
+            assistant=[r['span_id'] for s in item['steps'] for r in policy.spans(s['assistant'],f'B{s["step_id"]}')]
+            def check_schema(name):
+                def variant(verdicts, minimum):
+                    return obj({'verdict':enum(verdicts),'reason':TEXT,'evidence_span_ids':array(enum(evidence),minimum),
+                                'assistant_span_ids':array(enum(assistant))})
+                return {'anyOf':[variant(['pass'],1),variant(['fail','uncertain'],0)]} if name in quality_gate.CHECKS[:3] else variant(['pass','fail','uncertain'],0)
+            schema=obj({name:check_schema(name) for name in quality_gate.CHECKS})
+            def validate(value):
+                return quality_gate.validate({'checks':[{'name':k,**v} for k,v in value.items()]},item)
+            acceptance=claim_audit.structured(client,'acceptance',item['id'],quality_gate.prompt(item),schema,validate)
+            result['acceptance']=acceptance
+            result['automatic_acceptance_passed']=all(c['verdict']=='pass' for c in acceptance['checks'])
+        segments,plan=segment_audit.evaluate(item,canonical,result,client)
+        result.update(segments=segments,supervision=plan)
+        if not result['automatic_acceptance_passed'] or any(s['ex_post']['contribution']=='harmful' for s in segments):
+            for row in plan['messages']:
+                if canonical['messages'][row['index']]['role']=='assistant': row['decision']='review'
+            for segment in segments: segment['decision']='review'
+        result['selection']=describe(item,canonical,result)
+        result['status']='scored'
     except Exception as exc:
-        result = {'id':item['id'],'source':item['source'],'status':'failed','error':str(exc),
-                  'offline_quality_candidate':False,'training_ready':False}
-    result.update(sample_hash=digest(item), policy_hash=client.policy_hash, harness=item['harness'],
-                  human_review='pending',training_ready=False)
+        result.update(status='annotation_error',error=str(exc),offline_quality_candidate=False,
+                      automatic_acceptance_passed=False,training_ready=False)
+    finally:
+        result.update(sample_hash=digest(item), policy_hash=client.policy_hash, harness=item.get('harness',{}),
+                      human_review='pending',training_ready=False,seconds=round(time.monotonic()-started,3))
     return result
 
 
@@ -105,6 +144,8 @@ def review_entry(item, result, result_path):
             'result_path':str(result_path.resolve()), 'source':item['source'],
             'quality_issues':result.get('quality_issues',[]), 'evidence_gaps':result.get('evidence_gaps',[]),
             'annotation_issues':result.get('annotation_issues',[]),
+            'eligibility':result.get('eligibility'), 'segments':result.get('segments',[]),
+            'supervision':result.get('supervision'), 'selection':result.get('selection'),
             'decision':None, 'reviewer':None, 'reason':None,
             'allowed_decisions':['accept','reject','relabel','rewrite']}
 
@@ -125,6 +166,13 @@ def bounded_map(fn, items, workers):
 
 def annotate(config, out, input_path, limit):
     client = Client(config,out,policy_hash())
+    from safety_rules import Scanner
+    from glasseek_contract import build_contract
+    import secrets
+    canonical_path=config.get('canonical_input')
+    if not canonical_path: raise ValueError('Rules-first annotation requires canonical_input for safety and message binding')
+    client.canonical={r['id']:r for r in records(canonical_path)}
+    client.scanner=Scanner(json.loads(Path(__file__).with_name('safety_policy.json').read_text()),build_contract(),secrets.token_bytes(32))
     def selected():
         for index,item in enumerate(records(input_path)):
             if index >= limit: break
@@ -132,13 +180,14 @@ def annotate(config, out, input_path, limit):
     def run(item): return item,annotate_one(item,client)
     queue = out/'human_review_queue.jsonl'; queue.write_text('')
     index_path = out/'result_index.jsonl'; index_path.write_text('')
-    counts = {'samples':0,'scored':0,'offline_candidates':0,'training_ready':0}
+    counts = {'samples':0,'scored':0,'routed':0,'annotation_error':0,'offline_candidates':0,'training_ready':0}
     for item,result in bounded_map(run,selected(),config['execution']['workers']):
         path = out/'results'/(digest(item['id'])[:24]+'.json')
         save(path,{'sample':item,'result':result})
         append(queue,review_entry(item,result,path))
         append(index_path,{'id':item['id'],'path':str(path.resolve()),'status':result['status']})
         counts['samples'] += 1; counts['scored'] += result['status']=='scored'
+        for status in ('routed','annotation_error'): counts[status]+=result['status']==status
         counts['offline_candidates'] += result['offline_quality_candidate']
     save(out/'annotation_summary.json',counts)
     return counts
@@ -148,7 +197,7 @@ def validate_rewrite(value, item):
     answer = value.get('final_answer')
     if not isinstance(answer,str) or not answer.strip() or '<tool_call>' in answer or '<think>' in answer:
         raise ValueError('Rewrite must contain only a visible answer, not tool calls or hidden reasoning')
-    if answer.strip() == policy.v2.final_text(item).strip(): raise ValueError('Rewrite made no change')
+    if answer.strip() == policy.final_text(item).strip(): raise ValueError('Rewrite made no change')
     if not isinstance(value.get('evidence'),list) or not value['evidence']: raise ValueError('Rewrite needs located evidence')
     for ref in value['evidence']:
         if not policy.locate_across(item,ref): raise ValueError('Rewrite cites unlocated evidence')
@@ -156,7 +205,7 @@ def validate_rewrite(value, item):
 
 
 def validate_counterfactual(value, item):
-    original = policy.v2.final_text(item)
+    original = policy.final_text(item)
     span, replacement = value.get('original_span'),value.get('replacement')
     if not isinstance(span,str) or not span.strip(): raise ValueError('Mutation span must be nonempty')
     # Match whitespace variants only, retaining raw offsets for a single precise edit.
@@ -217,11 +266,11 @@ Every quote must be one contiguous observation substring; never concatenate titl
 Return {"original_span":"...","replacement":"...","failure_type":"...","reason":"...",
 "evidence":[{"step_id":1,"quote":"exact tool observation"}]}.
 The original answer is NOT assumed correct; this only proposes a synthetic negative. DATA:\n'''+json.dumps({
-    'question':item['question'],'final_answer_to_edit':policy.v2.final_text(item),
+    'question':item['question'],'final_answer_to_edit':policy.final_text(item),
     'observations':[{'step_id':s['step_id'],'text':s['observation']} for s in item['steps']]},ensure_ascii=False)
                     generated=client.call(kind,item['id'],prompt,policy.SYSTEM,lambda v:validate_counterfactual(v,item))
                     child=copy.deepcopy(item)
-                    location=generated['edit_location'];original=policy.v2.final_text(item)
+                    location=generated['edit_location'];original=policy.final_text(item)
                     child['steps'][-1]['assistant']=original[:location['start']]+generated['replacement']+original[location['end']:]
                 child['lineage']={'parent_id':item['id'],'parent_sample_hash':digest(item),'operation':kind,
                     'synthetic':True,'policy_hash':client.policy_hash,'generation_hash':digest(generated)}
@@ -279,6 +328,8 @@ def finalize(out, decisions_path, replay_path):
                 raise ValueError('Stale or mismatched human review')
             if sample.get('lineage',{}).get('operation')=='counterfactual': raise ValueError('Synthetic negatives cannot be positive SFT')
             if not result.get('offline_quality_candidate'): raise ValueError('Unresolved annotation/quality items; relabel before acceptance')
+            if 'eligibility' in result and not result.get('selection',{}).get('eligible_for_ranking'):
+                raise ValueError('Unresolved acceptance or semantic supervision review')
             replay=receipts.get(sample['id'],{})
             if replay.get('sample_hash')!=digest(sample) or replay.get('status')!='passed' or not replay.get('artifact_path'):
                 raise ValueError('Matching successful harness replay receipt required')
@@ -295,7 +346,6 @@ def finalize(out, decisions_path, replay_path):
 
 
 def main():
-    global policy
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command',choices=['prepare','annotate','variants','finalize'])
     parser.add_argument('--config',type=Path,default=Path(__file__).with_name('config.example.json'))
@@ -306,17 +356,14 @@ def main():
     parser.add_argument('--kinds',nargs='+',choices=['rewrite','counterfactual'],default=['rewrite','counterfactual'])
     parser.add_argument('--decisions',type=Path);parser.add_argument('--replay',type=Path)
     args=parser.parse_args();config=json.loads(args.config.read_text());out=args.output;out.mkdir(parents=True,exist_ok=True)
-    if config.get('policy_version') == 'evidence-id-v4':
-        import policy_v4
-        policy = policy_v4
-    elif config.get('policy_version') not in (None, 'offline-pilot-v3.1-general'):
-        raise ValueError('Unknown policy_version')
+    if config.get('policy_version') not in (None, 'evidence-id-v4', policy.VERSION):
+        raise ValueError('Unsupported policy_version; historical policies are archived. Use the current evidence-ID policy with a new output directory.')
     if args.inputs:config['inputs']=json.loads(args.inputs.read_text())
     if args.limit<1 or config['execution']['workers']<1: raise SystemExit('Positive limit/workers required')
     batch_limit=config['execution'].get('max_batch_samples')
     if batch_limit is not None and args.limit>batch_limit:
         raise SystemExit('Requested sample limit exceeds configured max_batch_samples='+str(batch_limit))
-    save(out/'config.redacted.json',public_config(config));save(out/'policy.json',{'code_hash':policy_hash(),'rubric':policy.VERSION,'deltas':policy.v2.DELTAS})
+    save(out/'config.redacted.json',public_config(config));save(out/'policy.json',{'code_hash':policy_hash(),'rubric':policy.VERSION,'deltas':policy.DELTAS})
     if args.command=='prepare':summary=prepare(config,out,args.limit)
     elif args.command=='annotate':summary=annotate(config,out,args.input or out/'clean.jsonl',args.limit)
     elif args.command=='variants':summary=variants(config,out,args.input or out/'clean.jsonl',args.limit,args.kinds)

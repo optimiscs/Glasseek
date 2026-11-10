@@ -49,7 +49,24 @@ _HERMES_NO_ACTION = '''                if action["type"] == "no_tool_call":
 def patch_loop(source):
     if source.count(_ORIGINAL_NO_ACTION) != 1:
         raise RuntimeError('Pinned CLM no-action branch changed; review Hermes completion integration')
-    return source.replace(_ORIGINAL_NO_ACTION, _HERMES_NO_ACTION)
+    replacements = {
+        '            while step < self.max_steps and total_iters < max_total_iters:':
+            '            while _glasseek_continue_run(self, step, total_iters, max_total_iters):',
+        '                # Record the context actually sent this step (after gate/nudge).':
+            '                _glasseek_prepare_turn(self, messages)\n\n'
+            '                # Record the context actually sent this step (after gate/nudge).',
+        '                if action["type"] == "context_status":':
+            '                if not _glasseek_admit_tool_turn(self, msg, messages):\n'
+            '                    agent_step_metrics.append(turn_metrics)\n'
+            '                    break\n\n'
+            '                if action["type"] == "context_status":',
+    }
+    source = source.replace(_ORIGINAL_NO_ACTION, _HERMES_NO_ACTION)
+    for before, after in replacements.items():
+        if source.count(before) != 1:
+            raise RuntimeError('Pinned CLM tool-round boundary changed; review integration')
+        source = source.replace(before, after)
+    return source
 
 
 def prompt_template(original):
@@ -98,11 +115,23 @@ def complete_or_continue(agent, message, finish_reason, messages):
 def install(agent, module):
     """Adapt finish wording only; retain upstream budget decisions and limits."""
     import types
+    from .tool_rounds import continue_run, prepare_turn, admit_tool_turn
+    module._glasseek_continue_run = continue_run
+    module._glasseek_prepare_turn = prepare_turn
+    module._glasseek_admit_tool_turn = admit_tool_turn
     module._hermes_completion = complete_or_continue
     agent.glasseek_completion = {'protocol': PROTOCOL, 'stop_reason': 'no_final_answer', 'answer': ''}
     original_nudge = agent._finalize_nudge
 
     def nudge(self, step):
+        budget = getattr(self, 'glasseek_tool_round_budget', None)
+        if budget is not None:
+            left = budget.limit - budget.used
+            if 0 < left <= 3:
+                return {'role': 'user', 'content':
+                    f'Only {left} tool rounds remain ({budget.used}/{budget.limit} used, including context edits). '
+                    'Conclude research and give your final answer directly without tool calls when ready.'}
+            return None
         message = original_nudge(step)
         if message:
             head = message['content'].split(' Stop exploring now:', 1)[0]

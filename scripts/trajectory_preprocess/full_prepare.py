@@ -23,7 +23,7 @@ from glasseek_shared.dataset_policy import excluded_source
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUTS = ('clean', 'held', 'duplicates', 'near_duplicates', 'file_errors',
-           'unsupported_tools', 'adapter_holds', 'quality_issues', 'format_review', 'incomplete_episodes', 'length_budget')
+           'unsupported_tools', 'dependency_review', 'adapter_holds', 'quality_issues', 'format_review', 'incomplete_episodes', 'length_budget')
 
 
 def inventory(specs):
@@ -89,6 +89,9 @@ def prepare_record(row, spec, index, config):
             item = normalize(row, source, spec['path'], index, spec.get('adapter', 'auto'))
             item['adapter_id'] = item['id']
             item['id'] = ident
+            from migration_rules import memberships
+            item['migration_rules'] = memberships(item)
+            location['migration_rules'] = item['migration_rules']
             item['harness'] = harness_plan(item, config['harness'])
             item['program_errors'] = sorted(set(item['program_errors'] + item['harness']['errors']))
             reasons.extend(item['program_errors'])
@@ -97,13 +100,17 @@ def prepare_record(row, spec, index, config):
                 item['source_content_hash']=item['content_hash']
                 materialize(item)
                 item['content_hash']=semantic_hash(item)
-            if len(json.dumps(item, ensure_ascii=False)) > config['max_sample_chars']:
+            from call_protocol import model_visible_chars
+            item['length_measurement'] = {'unit':'unicode_characters','scope':'rendered_message_contents',
+                                          'value':model_visible_chars(item),'limit':config['max_sample_chars']}
+            if item['length_measurement']['value'] > config['max_sample_chars']:
                 reasons.append('annotation_size_budget_exceeded')
             fingerprint = simhash(item['question'])
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
             reasons = ['normalization_error']
             location['error'] = type(exc).__name__ + ': ' + str(exc)
             item = None
+            location.setdefault('migration_rules', ['unparsed'])
     return index, location, item, reasons, fingerprint
 
 
@@ -114,9 +121,11 @@ def prepare_batch(batch, spec, config):
 
 def prepared_rows(spec, config, skip, pool, workers):
     reader = enumerate(input_rows(spec))
+    selection = config.get('selection', {}).get('indices_by_path', {}).get(spec['path'])
+    selection = set(selection) if selection is not None else None
     if pool is None:
         for index, row in reader:
-            if index >= skip:
+            if index >= skip and (selection is None or index in selection):
                 yield prepare_record(row, spec, index, config)
         return
     pending = deque()
@@ -137,7 +146,7 @@ def prepared_rows(spec, config, skip, pool, workers):
                     except Exception as exc:
                         read_error, finished = exc, True
                         break
-                    if index < skip:
+                    if index < skip or (selection is not None and index not in selection):
                         continue
                     raw = pickle.dumps(row, protocol=5)
                     size += len(raw)
@@ -180,11 +189,17 @@ def run_locked(specs, config, out, checkpoint_every, stop_after, pool, workers):
     files = inventory(specs)
     parquet_rows = preflight(files)
     source_files = [Path(__file__), *[Path(__file__).with_name(n) for n in
-                                     ('ingest.py', 'tool_xml.py', 'client.py', 'message_adapter.py', 'dispositions.py', 'glasseek_contract.py', 'runtime_metadata.py', 'call_protocol.py')],
+                                     ('ingest.py', 'tool_xml.py', 'client.py', 'message_adapter.py', 'dispositions.py', 'glasseek_contract.py', 'runtime_metadata.py', 'call_protocol.py','extract_batching.py','web_batching.py','tool_prompt.py','migration_rules.py')],
+                    Path(__file__).resolve().parents[2] / 'Shared/glasseek_shared/historical_tools.py',
                     Path(__file__).resolve().parents[2] / 'Shared/glasseek_shared/extract_protocol.py',
+                    Path(__file__).resolve().parents[2] / 'Shared/glasseek_shared/search_protocol.py',
+                    Path(__file__).resolve().parents[2] / 'Shared/glasseek_shared/web_return_audit.py',
+                    Path(__file__).resolve().parents[2] / 'Shared/glasseek_shared/hermes/qwen_xml_protocol.py',
                     Path(__file__).resolve().parents[2] / 'Shared/glasseek_shared/dataset_policy.py']
     source_hashes = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in source_files}
-    manifest = {'version': 'offline-full-prepare-8-call-response', 'inputs': files, 'config': config,
+    manifest = {'version': 'offline-full-prepare-13-search-return-audit', 'inputs': files, 'config': config,
+                'extract_return_policy':'historical-web-call-batch-v3',
+                'length_budget_scope':'rendered_message_contents_unicode_characters',
                 'parquet_expected_rows': parquet_rows,
                 'code_sha256': source_hashes,
                 'input_identity': 'absolute path + bytes + mtime_ns; not a download completeness certificate',
@@ -271,6 +286,8 @@ def run_locked(specs, config, out, checkpoint_every, stop_after, pool, workers):
                     index, location, item, reasons, fingerprint = next(iterator)
                 except StopIteration:
                     expected = parquet_rows.get(spec['path'])
+                    selected = config.get('selection', {}).get('indices_by_path', {}).get(spec['path'])
+                    if selected is not None: expected = max(selected,default=-1)+1
                     if expected is not None and index + 1 != expected:
                         count(source, 'file_errors')
                         emit('file_errors', {'source': source, 'path': spec['path'],
@@ -339,6 +356,7 @@ def main():
     parser.add_argument('--inputs', type=Path, default=Path(__file__).with_name('inputs.datasets.json'))
     parser.add_argument('--checkpoint-every', type=int, default=100)
     parser.add_argument('--workers', type=int, default=1)
+    parser.add_argument('--sample-manifest', type=Path)
     parser.add_argument('--harness-profile', choices=('web-only','glasseek-eval'), default='glasseek-eval')
     args = parser.parse_args()
     if args.checkpoint_every < 1:
@@ -346,6 +364,8 @@ def main():
     config = {'max_sample_chars': 250000,
               'dedup': {'near_question_hamming_distance': 3, 'max_bucket_candidates': 200},
               'harness': {'search_name': 'web_search', 'extract_name': 'web_extract', 'extract_max_urls': 5}}
+    if args.sample_manifest:
+        config['selection'] = json.loads(args.sample_manifest.read_text())
     if args.harness_profile=='glasseek-eval':
         from glasseek_contract import build_contract
         config['harness']['contract']=build_contract()

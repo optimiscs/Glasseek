@@ -13,6 +13,8 @@ from message_adapter import conversation
 from runtime_metadata import clean_item
 from call_protocol import ensure_links
 from glasseek_shared.dataset_policy import excluded_source
+from glasseek_shared.search_protocol import MAX_QUERIES
+from glasseek_shared.hermes.qwen_xml_protocol import strip_batch_wrappers,VERSION as FORMAT_VERSION
 
 
 def records(path, max_record_chars=16000000):
@@ -88,6 +90,10 @@ def normalize(row, source, path, index, adapter='auto'):
         if step.get('step_id') != number: raise ValueError('Non-contiguous step IDs')
         if not all(isinstance(step.get(k), str) for k in ('assistant', 'observation')): raise ValueError('Invalid step text')
         step.setdefault('calls', [])
+        framed,framing_events=strip_batch_wrappers(step['assistant'])
+        if framing_events:
+            step['tool_format_provenance']={'version':FORMAT_VERSION,'original_content':step['assistant'],'events':framing_events}
+            step['assistant']=framed
         step['assistant'], step['calls'] = normalize_text(step['assistant'], step['calls'])
     ensure_links(item)
     clean_item(item)
@@ -98,7 +104,8 @@ def normalize(row, source, path, index, adapter='auto'):
 
 def semantic_hash(item):
     semantic_steps = [{k:v for k,v in s.items() if k not in ('source_message_index','source_tool_payload',
-                      'call_links','responses','source_call_links','source_responses','association_status')}
+                      'call_links','responses','source_call_links','source_responses','association_status',
+                      'extract_merge_provenance','web_batch_provenance','tool_format_provenance')}
                       for s in item['steps']]
     semantic = {'question': unicodedata.normalize('NFC', item['question']).strip(), 'steps': semantic_steps}
     for key in ('context_messages','instruction_messages'):
@@ -126,21 +133,31 @@ def harness_plan(item, config):
                 queries = args.get('query'); queries = [queries] if isinstance(queries, str) else queries
                 if not isinstance(queries, list) or not queries or not all(isinstance(q,str) and q.strip() for q in queries):
                     errors.append('invalid_search_query'); continue
-                if set(args) - {'query', 'limit', 'topn'}: flags.append('unmapped_search_arguments')
+                extra = set(args) - {'query', 'limit', 'topn'}
+                if extra:
+                    errors.extend('unmapped_search_argument:' + key for key in sorted(extra))
+                    continue
                 if 'limit' in args and 'topn' in args and args['limit'] != args['topn']:
                     errors.append('conflicting_search_limits'); continue
                 limit = args.get('limit', args.get('topn', 5))
                 if type(limit) != int or not 1 <= limit <= 100: errors.append('invalid_search_limit'); continue
-                for query in queries:
-                    plan.append({'step_id': step['step_id'], 'name': config['search_name'], 'arguments': {'query': query, 'limit': limit}})
-                if len(queries)>1: flags.append('search_batch_split_requires_observation_alignment')
+                if len(queries)>MAX_QUERIES:
+                    errors.append('search_query_batch_limit_requires_explicit_split');continue
+                query = args['query'] if isinstance(args['query'],str) else queries
+                plan.append({'step_id': step['step_id'], 'name': config['search_name'], 'arguments': {'query': query, 'limit': limit}})
                 if name == 'browser.search': flags.append('search_backend_semantics_require_replay')
             elif name in ('visit', 'visit_urls', 'webextract', config['extract_name'].casefold(), 'browser.open'):
                 if name == 'browser.open':
                     target = args.get('id')
                     if not isinstance(target, str) or not target.startswith(('https://', 'http://')):
                         errors.append('unsupported_tool:browser.open.cursor_or_local_resource'); continue
-                    args = {**args, 'url': target}
+                    if any((args[key] if isinstance(args[key], list) else [args[key]]) != [target]
+                           for key in ('url', 'urls') if key in args):
+                        errors.append('conflicting_extract_urls'); continue
+                    # Only id has an equivalent URL meaning. Never discard viewport,
+                    # session, backend, or parsing options to make a call fit.
+                    args = {key: value for key, value in args.items() if key != 'id'}
+                    args['url'] = target
                     flags.append('browser_viewport_semantics_require_replay')
                 if 'url' in args and 'urls' in args:
                     one = args['url'] if isinstance(args['url'],list) else [args['url']]
@@ -159,7 +176,10 @@ def harness_plan(item, config):
                     errors.append('conflicting_extract_goals'); continue
                 goal_args={'goal':goals[0]} if goals else {}
                 if 'query' in args: flags.append('extraction_query_mapped_to_goal')
-                if set(args) - {'url', 'urls','goal','query'}: flags.append('extraction_semantics_require_replay')
+                extra = set(args) - {'url', 'urls', 'goal', 'query'}
+                if extra:
+                    errors.extend('unmapped_extract_argument:' + key for key in sorted(extra))
+                    continue
                 if any(g.strip() for g in goals): flags.append('goal_conditioned_extraction_requires_replay')
                 size = config['extract_max_urls']
                 if len(urls) > size:

@@ -17,15 +17,17 @@ import socket
 from urllib.parse import parse_qsl, unquote, urlsplit
 
 from client import digest
-from glasseek_contract import validate_args
+from glasseek_contract import validate_args, private_temp_target
 from safety_context import build_context, View
 from answer_leakage import external_signals, question_text, guard, PLUGIN_SHA256
 
-VERSION = 'safety-rules-v2-answer-leakage'
+VERSION = 'safety-rules-v5-web-batch-response-scope'
 URL = re.compile(r'(?:https?|ftp|file|gopher)://[^\s<>"\x27\\]+', re.I)
 SECRET = re.compile(r'(?<![\w-])(?:sk-(?:ant-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[A-Z0-9]{16}|AIza[A-Za-z0-9_-]{30,}|xox[baprs]-[A-Za-z0-9-]{16,})')
 PRIVATE_KEY = re.compile(r'-----BEGIN (?:[A-Z0-9]+ )?PRIVATE KEY-----[\s\S]*?(?:-----END (?:[A-Z0-9]+ )?PRIVATE KEY-----|$)')
-ASSIGNMENT = re.compile(r'''(?ix)(?:["']?(?:api[_-]?key|access_token|refresh_token|client_secret|password|authorization)["']?\s*[:=]\s*["']?)(?:Bearer\s+)?(\$\{[A-Z0-9_]+\}|<[^>\n]+>|[^\s"'<>;,}&\\]{6,})''')
+ASSIGNMENT = re.compile(r'''(?ix)["']?(?:api[_-]?key|access_token|refresh_token|client_secret|password|authorization)["']?\s*[:=]\s*(?:"([^"\n]{6,})"|'([^'\n]{6,})'|([^\s"'<>;,}&\\]{6,})(?=\s*(?:$|[\n,}\#])))''')
+BEARER = re.compile(r'(?i)(?:\bBearer|\bAuthorization\s*:\s*Basic)\s+([A-Za-z0-9._~+/=-]{16,})')
+UNQUOTED = re.compile(r'''(?ix)\b(?:api[_-]?key|access_token|refresh_token|client_secret|password|passwd)\s*:\s*([^\s"'<>;,}&\\]{6,})''')
 EMAIL = re.compile(r'(?<![\w.+-])[A-Za-z0-9.!#$%&\x27*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![\w.-])')
 PHONE = re.compile(r'(?<!\w)(?:\+?86[- ]?)?1[3-9]\d{9}(?!\w)')
 IDENTITY = re.compile(r'(?<!\w)[1-9]\d{16}[0-9Xx](?!\w)')
@@ -89,7 +91,10 @@ def code_capabilities(code):
             if n in {'eval','exec','compile','__import__','getattr','setattr'}: result.add('dynamic_execution')
             if n.startswith(('subprocess.','os.system','os.popen','os.exec')): result.add('subprocess')
             if n.startswith(('requests.','httpx.','urllib.','socket.','http.client.')): result.add('network')
-            if n == 'open' or n.startswith(('shutil.','os.remove','os.unlink','os.rmdir')) or n.endswith(('.write_text','.write_bytes','.read_text','.read_bytes','.open')): result.add('filesystem')
+            if n in {'open','io.open'}:
+                target=node.args[0] if node.args else next((k.value for k in node.keywords if k.arg=='file'),None)
+                if not private_temp_target(target):result.add('filesystem')
+            elif n.startswith(('shutil.','os.remove','os.unlink','os.rmdir')) or n.endswith(('.write_text','.write_bytes','.read_text','.read_bytes','.open')): result.add('filesystem')
         if isinstance(node,ast.Attribute) and name(node).startswith(('os.environ','os.getenv')): result.add('environment_access')
     return result
 
@@ -105,7 +110,9 @@ class Scanner:
         self.benchmarks = [re.compile(p) for p in policy['benchmark_patterns']]
         # Runtime review budgets/providers can change without repeating the rule scan.
         # Each model decision separately records its review settings and config hash.
-        self.policy_hash = digest([VERSION,{k:v for k,v in policy.items() if k!='llm'},contract,PLUGIN_SHA256,{n:hashlib.sha256(Path(__file__).with_name(n).read_bytes()).hexdigest()
+        shared_hash=hashlib.sha256((Path(__file__).resolve().parents[2]/'Shared/glasseek_shared/historical_tools.py').read_bytes()).hexdigest()
+        extract_hash=hashlib.sha256((Path(__file__).resolve().parents[2]/'Shared/glasseek_shared/extract_protocol.py').read_bytes()).hexdigest()
+        self.policy_hash = digest([VERSION,{k:v for k,v in policy.items() if k!='llm'},contract,PLUGIN_SHA256,shared_hash,extract_hash,{n:hashlib.sha256(Path(__file__).with_name(n).read_bytes()).hexdigest()
                                  for n in ('safety_rules.py','safety_context.py','answer_leakage.py')}])
 
     def fingerprint(self, text):
@@ -119,8 +126,16 @@ class Scanner:
             for m in regex.finditer(text):
                 if rule == 'privacy.identity' and not identity_valid(m[0]): continue
                 spans.append((m.start(),m.end(),rule))
-        for m in ASSIGNMENT.finditer(text):
-            if not PLACEHOLDER.fullmatch(m[1]): spans.append((m.start(1),m.end(1),'credential.assignment'))
+        for regex in (ASSIGNMENT, BEARER):
+            for m in regex.finditer(text):
+                group=next(i for i,value in enumerate(m.groups(),1) if value is not None)
+                if not PLACEHOLDER.fullmatch(m[group]):spans.append((m.start(group),m.end(group),'credential.assignment'))
+        for m in UNQUOTED.finditer(text):
+            value=m[1]
+            if PLACEHOLDER.fullmatch(value):continue
+            token_shape=any(c.isdigit() or not c.isalpha() for c in value) or (any(c.isupper() for c in value[1:]) and any(c.islower() for c in value))
+            next_field=re.match(r'\s+[A-Za-z][A-Za-z ]{0,40}:',text[m.end(1):])
+            if token_shape or next_field:spans.append((m.start(1),m.end(1),'credential.unquoted_value'))
         for m in URL.finditer(text):
             try:
                 p=urlsplit(m[0])
@@ -212,9 +227,18 @@ class Scanner:
             text=decoded(original.text,self.policy['max_decode_layers'])
             if text != original.text:
                 variants.append(View(original.pointer+'/decoded',text,original.kind,original.message_index,True))
+            if original.kind=='external_part':
+                # Parse each recorded call return independently for query/goal
+                # echo removal. The full concatenation is still scanned below
+                # for credentials, unsafe URLs, code and prompt injection.
+                for v in variants:
+                    for rule,details in external_signals(v.text,question,self.policy.get('answer_overlap_max_chars',120000)):
+                        add(rule,v,0,len(v.text),details=details)
+                continue
             for v in variants:
                 for start,end,rule in self.sensitive_spans(v.text):
                     disposition = 'quarantine' if rule.startswith('credential.') else 'review'
+                    if rule=='credential.unquoted_value':disposition='review'
                     # A token-looking slug is not enough to declare a URL path a key.
                     if rule == 'credential.token' and any(m.start() <= start < end <= m.end() for m in URL.finditer(v.text)):
                         disposition = 'review'
@@ -234,7 +258,7 @@ class Scanner:
                         add(rule,v,0,len(v.text),details=details)
                 for match in SHELL.finditer(v.text):
                     add('code.shell_pattern',v,match.start(),match.end(),'quarantine' if v.pointer.removesuffix('/decoded') in executable_code else 'review')
-                if v.kind=='external':
+                if v.kind in ('external','external_batch'):
                     for regex in self.injection:
                         for match in regex.finditer(v.text):
                             targets={m[0].rstrip('.,;)') for m in URL.finditer(v.text)}

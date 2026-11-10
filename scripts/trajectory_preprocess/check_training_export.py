@@ -26,7 +26,11 @@ def main():
             ids,mask,attention,extra=data._process_single_message(j,message,data.messages[i],data.tools[i] if j==0 else None,True)
             loss_tokens=int(mask.sum())
             if message['role']!='assistant':assert loss_tokens==0
-            elif message['content'].strip():assert loss_tokens>0
+            else:
+                from glasseek_shared.curation.supervision import message_hash
+                plan=data.supervision_by_messages.get(message_hash(data.messages[i]))
+                if plan and plan['messages'][j]['decision']!='learn': assert loss_tokens==0
+                elif message['content'].strip():assert loss_tokens>0
             masks.append({'role':message['role'],'tokens':len(ids),'loss_tokens':loss_tokens})
         rows.append({'id':data.dataframe.iloc[i]['id'],'tokens':len(example['input_ids']),
                      'loss_tokens':int(example['loss_mask'].sum()),'messages':masks,

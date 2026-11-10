@@ -7,6 +7,8 @@ import sys
 import os
 import urllib.request
 import threading
+import tempfile
+from socketserver import ThreadingMixIn,UnixStreamServer
 from . import ROOT
 from glasseek_shared.hermes.tool_errors import ToolFailure,exception_failure,http_json
 
@@ -19,7 +21,7 @@ class WebBridge:
         # Official CLM uses the existing admitted fetch service, not direct Jina.
         defaults=json.loads((ROOT/'Evaluation/config/tool_services.json').read_text())
         fetch=os.environ.get('GLASSEEK_FETCH_URL',f"http://{defaults['host']}:{defaults['fetch_port']}").rstrip('/')
-        if fetch and hasattr(self.tools,'_execute'):
+        if fetch and hasattr(self.tools,'_execute') and not os.environ.get('GLASSEEK_FIXED_CORPUS_CONFIG'):
             original_execute=self.tools._execute
             def execute(call):
                 if call['name']!='web_extract':return original_execute(call)
@@ -69,7 +71,16 @@ class WebBridge:
                     body=json.dumps({'output':str(failure),**failure.payload}).encode();self.send_response(code)
                 self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
             def log_message(self,*args):pass
-        self.server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
-        self.url=f'http://127.0.0.1:{self.server.server_port}'
+        self.socket_directory=None
+        if os.environ.get('GLASSEEK_FIXED_CORPUS_CONFIG'):
+            class UnixServer(ThreadingMixIn,UnixStreamServer):daemon_threads=True
+            self.socket_directory=tempfile.TemporaryDirectory(prefix='glasseek-corpus-')
+            path=str(Path(self.socket_directory.name)/'web.sock')
+            self.server=UnixServer(path,Handler);self.url='unix:'+path
+        else:
+            self.server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
+            self.url=f'http://127.0.0.1:{self.server.server_port}'
         self.thread=threading.Thread(target=self.server.serve_forever,daemon=True);self.thread.start()
-    def close(self):self.server.shutdown();self.server.server_close();self.thread.join()
+    def close(self):
+        self.server.shutdown();self.server.server_close();self.thread.join()
+        if self.socket_directory:self.socket_directory.cleanup()

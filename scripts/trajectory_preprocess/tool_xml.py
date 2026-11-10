@@ -8,6 +8,8 @@ for unambiguous round-trip validation. Delimiter collisions fail closed.
 import copy
 import json
 import re
+from glasseek_shared.hermes.qwen_xml_protocol import strip_batch_wrappers
+from glasseek_shared.search_protocol import decode_query_array
 
 NAME=re.compile(r'[A-Za-z_][A-Za-z0-9_.:-]*\Z')
 CALL=re.compile(r'<tool_call>\s*(.*?)\s*</tool_call>',re.S)
@@ -24,12 +26,13 @@ def checked_call(value):
     if not isinstance(args,dict) or any(not isinstance(k,str) or not NAME.fullmatch(k) for k in args):raise ValueError('Invalid tool arguments/names')
     # Decode only schema-defined container/numeric fields. Ordinary query strings
     # and quoted code remain text; malformed bracketed text is not guessed at.
-    for key in ('query','url','urls'):
+    if 'query' in args:args['query']=decode_query_array(args['query'])
+    for key in ('url','urls'):
         value=args.get(key)
         if isinstance(value,str) and value.strip().startswith('['):
             try:decoded=json.loads(value)
             except json.JSONDecodeError:continue
-            if isinstance(decoded,list) and all(isinstance(v,str) for v in decoded):args[key]=decoded
+            if isinstance(decoded,list):args[key]=decoded
     for key in ('limit','topn'):
         value=args.get(key)
         if isinstance(value,str) and re.fullmatch(r'[0-9]+',value):args[key]=int(value)
@@ -91,6 +94,7 @@ def parse_body(body,expected=None):
 
 def normalize_text(text,structured_calls=None):
     """Convert executable calls only; preserve quoted syntax within reasoning."""
+    text,_=strip_batch_wrappers(text)
     protected=[(m.start(),m.end()) for m in THINK.finditer(text)]
     native=[checked_call(c) for c in structured_calls or []]
     calls=[];parts=[];cursor=0

@@ -47,6 +47,12 @@ async def run(args, query_hook=None, tools=None, recorder=None):
         shutil.move(str(old_ctx),str(archive/('trajectory-'+hashlib.sha256(old_ctx.read_bytes()).hexdigest()[:12]+'.ctx.json')))
     agent=create_agent(workspace=env._workdir,logs_dir=args.output/'agent',model_name='openai/'+args.model,api_base=args.base_url,
         allow_edit_growth='shrink',resume_from=args.resume_from,**kwargs)
+    tool_limit = getattr(args, 'max_tool_rounds', None)
+    if tool_limit is not None:
+        from .tool_rounds import ToolRoundBudget
+        agent.glasseek_tool_round_budget = ToolRoundBudget(args.output/'agent/tool-round-budget.json',
+            tool_limit, getattr(args, 'tool_rounds_used', 0))
+        agent.lm_call_cap = 0
     # Context instructions are upstream; action/final-answer wording uses Hermes.
     bridge=None
     if query_hook is not None:
@@ -65,6 +71,16 @@ async def run(args, query_hook=None, tools=None, recorder=None):
 import sys,json,urllib.request,urllib.error
 mode=sys.argv[1]
 call={'name':'web_search','arguments':{'query':' '.join(sys.argv[2:])}} if mode=='search' else {'name':'web_extract','arguments':{'urls':sys.argv[2:]}}
+if 'GATEWAY'.startswith('unix:'):
+    import http.client,socket
+    class UnixHTTP(http.client.HTTPConnection):
+        def connect(self):
+            self.sock=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
+            self.sock.connect('GATEWAY'[5:])
+    connection=UnixHTTP('localhost',timeout=180)
+    connection.request('POST','/session/SESSION',body=json.dumps(call),headers={'Content-Type':'application/json'})
+    response=connection.getresponse();payload=json.load(response)
+    print(payload['output']);raise SystemExit(0 if response.status==200 else 1)
 r=urllib.request.Request('GATEWAY/session/SESSION',data=json.dumps(call).encode(),headers={'Content-Type':'application/json'})
 try:
     with urllib.request.urlopen(r,timeout=180) as f:payload=json.load(f)
@@ -87,6 +103,9 @@ print(payload['output'])
         helper_path=str(Path(env._workdir)/'glasseek-web')
         await env.exec('chmod +x '+shlex.quote(helper_path))
         brief=args.question+'\n\nAvailable web commands: '+helper_path+' search QUERY; '+helper_path+' extract URL_OR_ID [URL_OR_ID ...]. Return the final answer directly in an assistant message without tool calls, following the answer format requested above.'
+        import os
+        if os.environ.get('GLASSEEK_FIXED_CORPUS_CONFIG'):
+            brief+='\n\nRetrieval uses a fixed document corpus. Search returns original URLs and document IDs. Read only those corpus documents with the commands above; there is no live-web fallback. Cite evidence as [docid] using document IDs already returned by your tools. Bash network sockets are disabled; the supplied web command uses the task-local Unix bridge.'
         context=SimpleNamespace()
         await agent.run(brief,env,context)
         transcript=json.loads((args.output/'agent/trajectory.json').read_text())
@@ -96,10 +115,16 @@ print(payload['output'])
         if completion['stop_reason']!='answer':
             if agent.hit_lm_call_cap:completion['stop_reason']='lm_call_limit'
             elif agent._budget.finalized:completion['stop_reason']='context_limit'
+            elif getattr(agent, 'glasseek_tool_round_budget', None) is not None and agent.glasseek_tool_round_budget.exhausted:
+                completion['stop_reason']='tool_round_limit'
             elif agent.n_lm_calls>=args.max_steps:completion['stop_reason']='turn_limit'
         (args.output/'provenance.json').write_text(json.dumps({'official_commit':COMMIT,'system_prompt':'official context instructions with Hermes completion wording and per-task paths','completion_protocol':PROTOCOL,'paths':agent.glasseek_paths,'prompt':agent.glasseek_prompt,'environment':args.environment,'task_addition':'Glasseek web command usage and native assistant answer','model':args.model},indent=2))
+        usage=json.loads((args.output/'agent/usage.json').read_text())
+        if tool_limit is not None:
+            usage.update(tool_round_limit=tool_limit, tool_rounds_used=agent.glasseek_tool_round_budget.used)
+            (args.output/'agent/usage.json').write_text(json.dumps(usage,indent=2))
         return {'messages':transcript,**completion,
-                'web_calls':dict(bridge.counts) if bridge else {},'usage':json.loads((args.output/'agent/usage.json').read_text())}
+                'web_calls':dict(bridge.counts) if bridge else {},'usage':usage}
     finally:
         try:
             if bridge is not None:bridge.close()
