@@ -125,3 +125,15 @@ def test_native_extract_description_matches_actual_no_summary_path(research):
     function=kwargs['tools'][0]['function']
     assert 'original passages' in function['description']
     assert 'summarize' not in function['parameters']['properties']['goal']['description']
+
+
+@pytest.mark.parametrize('url', ['https://en.wikipedia.org/wiki/Function_(mathematics)',
+    'https://example.org/a,b?signature=abc%2Bdef&key=1', 'https://example.org/path,'])
+def test_original_url_identity_is_preserved_in_finish(url):
+    observed=[{'role':'tool','content':json.dumps({'results':[{'url':url,'content':'source fact'}]})}]
+    candidate={'answer':'a','confidence':95,'evidences':[{'evidence':'source fact','url':url}]}
+    assert protocol.validate_finish(json.dumps(candidate),'browsecomp',observed)==candidate
+    # A normalization must not silently bless a different URL.
+    candidate['evidences'][0]['url']=url[:-1] if url.endswith((',', ')')) else url+'changed'
+    with pytest.raises(ValueError,match='not present'):
+        protocol.validate_finish(json.dumps(candidate),'browsecomp',observed)

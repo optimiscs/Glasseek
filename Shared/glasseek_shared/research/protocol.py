@@ -66,11 +66,39 @@ def strict_json(raw):
 
 def observed_urls(messages):
     found = set()
+
+    def scan(value):
+        if isinstance(value, dict):
+            for item in value.values():
+                scan(item)
+        elif isinstance(value, list):
+            for item in value:
+                scan(item)
+        elif isinstance(value, str):
+            # Structured URL fields are authoritative: parentheses, commas,
+            # query parameters and signatures are part of the exact address.
+            if re.fullmatch(r'https?://[^\s<>"\']+', value):
+                found.add(value)
+                return
+            for url in re.findall(r'https?://[^\s<>"\']+', value):
+                url = url.rstrip('.,;:')
+                # Remove Markdown/prose closing delimiters only when unmatched.
+                while url.endswith(')') and url.count(')') > url.count('('):
+                    url = url[:-1]
+                while url.endswith(']') and url.count(']') > url.count('['):
+                    url = url[:-1]
+                found.add(url)
+
     for message in messages:
         if message.get('role') != 'tool':
             continue
-        text = str(message.get('content') or '')
-        found.update(u.rstrip('.,;:') for u in re.findall(r'https?://[^\s<>"\)\]\}]+', text))
+        content = message.get('content') or ''
+        if isinstance(content, str):
+            try:
+                content = json.loads(content)
+            except (ValueError, TypeError):
+                pass
+        scan(content)
     return found
 
 
@@ -95,7 +123,7 @@ def validate_finish(raw, dataset, messages):
         u = urlsplit(item['url'])
         if u.scheme not in ('http', 'https') or not u.hostname or u.username or re.search(r'\s', item['url']):
             raise ValueError('evidence URL must be HTTP(S) without credentials or whitespace')
-        if item['url'].rstrip('.,;:') not in seen:
+        if item['url'] not in seen:
             raise ValueError('evidence URL not present in observed tool results')
     if name not in {'gaia', 'hle'} and not value['evidences']:
         raise ValueError('external research requires source-backed evidences')
