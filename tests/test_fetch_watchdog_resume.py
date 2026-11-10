@@ -13,6 +13,19 @@ spec.loader.exec_module(watchdog)
 
 
 class WatchdogResumeTests(unittest.TestCase):
+    def test_functional_budget_does_not_extend_health_timeout(self):
+        with patch.object(watchdog, '_json_request', return_value={'status': 'ok'}) as health, \
+             patch.object(watchdog, '_probe_target') as fetch:
+            watchdog.probe('http://localhost:18081', 3, ['https://example.com'], functional_timeout=180)
+        self.assertEqual(health.call_args.args[1], 3)
+        fetch.assert_called_once_with('http://localhost:18081', 180, 'https://example.com')
+
+    def test_functional_failure_still_blocks(self):
+        with patch.object(watchdog, '_json_request', return_value={'status': 'ok'}), \
+             patch.object(watchdog, '_probe_target', side_effect=TimeoutError('upstream timeout')):
+            with self.assertRaisesRegex(RuntimeError, 'functional fetch failed'):
+                watchdog.probe('http://localhost:18081', 3, ['https://example.com'], functional_timeout=180)
+
     def test_fetch_abort_does_not_consume_attempt(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
