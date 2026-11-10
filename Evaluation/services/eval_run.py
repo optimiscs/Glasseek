@@ -4,6 +4,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from search_pool import client_env, load_config as search_config
 from tool_services import environment, load_config as tool_config
@@ -13,7 +14,7 @@ sys.path.insert(0, str(SOURCE.parent / "Shared"))
 from glasseek_shared.hermes.url_registry import add_url_argument
 
 
-def build(profile, mode, overrides=None):
+def build(profile, mode, overrides=None, *, python_entry=False):
     config = json.loads(Path(os.environ.get('GLASSEEK_EVAL_PROFILES', SOURCE / 'config/eval_profiles.json')).read_text())
     preset = config['profiles'][profile]
     settings = dict(config['defaults'])
@@ -58,7 +59,9 @@ def build(profile, mode, overrides=None):
             '--ramp-registry',
             '--ramp-start', str(settings['ramp_start']), '--ramp-max', str(settings['ramp_max']),
             '--ramp-step', '2', '--ramp-window', '90', '--ramp-interval', '5']
-        argv = ['bash', str(evaluation / 'scripts/run_eval.sh'), '--model', settings['model'],
+        entry = [env['EVAL_PYTHON'], str(SOURCE / 'services/native_eval.py')] if python_entry else [
+            'bash', str(evaluation / 'scripts/run_eval.sh')]
+        argv = [*entry, '--model', settings['model'],
             *endpoint_args, '--workers-per-endpoint', str(settings['workers_per_endpoint']),
             '--dataset', settings['dataset'], '--data-path', str(runtime / (settings['dataset'] + '.jsonl')),
             '--save-name', settings['run'], '--numbered-output', '--tool-whitelist', 'web,code_execution,delegation,vision',
@@ -76,6 +79,20 @@ def build(profile, mode, overrides=None):
             argv += ['--limit', '1']
         if env.get('PREPARE_ONLY') == '1':
             argv += ['--prepare-only']
+        if python_entry:
+            # Match the existing launcher's worker/environment defaults without
+            # invoking a shell. num-workers also bounds multi-endpoint profiles.
+            argv += ['--num-workers', str(settings['workers_per_endpoint']),
+                     '--hermes-bin', env['HERMES_BIN'], '--provider', 'custom',
+                     '--api-key-env', 'HERMES_API_KEY', '--ignore-rules', '--endpoint-watchdog']
+            env.setdefault('HERMES_SESSION_STORAGE_ROOT', str(Path(env['HERMES_HOME']) / 'sessions'))
+            env.setdefault('PYTHONUNBUFFERED', '1')
+            env['FETCH_SERVER_BASE_URL'] = env['FETCH_SERVER_URL'] = env['GLASSEEK_FETCH_URL']
+            for key in ('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'http_proxy', 'https_proxy', 'all_proxy', 'BROWSER_CDP_URL'):
+                env.pop(key, None)
+            hosts = [urlsplit(url.strip()).hostname for url in settings.get('base_urls', '').split(',') if url.strip()]
+            env['NO_PROXY'] = env['no_proxy'] = ','.join(dict.fromkeys(
+                host for host in [*hosts, 'localhost', '127.0.0.1', '::1'] if host))
     return argv, env
 
 

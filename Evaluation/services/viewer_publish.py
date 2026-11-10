@@ -79,6 +79,18 @@ def atomic_json(path, data):
             os.unlink(temporary)
 
 
+def workspace_metadata(run, dataset, entries, explicit=None):
+    """Keep all benchmark exports of a suite in one persistent workspace."""
+    if not dataset.startswith('suite_'):
+        return {'group': explicit} if explicit else {}
+    suffix = '_' + dataset.removeprefix('suite_')
+    if not run.endswith(suffix):return {}
+    batch = run[:-len(suffix)]
+    group = explicit or next((entry['group'] for entry in entries
+        if entry.get('group') and (entry.get('suiteBatch') == batch or entry.get('id', '').startswith(batch + '_'))), batch)
+    return {'group': group, 'suiteBatch': batch}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('run', 'dataset', 'model', 'label'):
@@ -129,10 +141,15 @@ def main():
                         data = json.loads(registry.read_text()) if registry.exists() else {'datasets': []}
                         package = json.loads(output.read_text())
                         count = package.get('run', {}).get('requestedCases')
-                        benchmark = f'{args.dataset} · {count} 题' if count is not None else args.dataset
-                        if not any(entry.get('id') == args.run for entry in data['datasets']):
+                        benchmark = package.get('run', {}).get('benchmark') or (f'{args.dataset} · {count} 题' if count is not None else args.dataset)
+                        workspace = workspace_metadata(args.run, args.dataset, data['datasets'], env.get('GLASSEEK_VIEWER_GROUP'))
+                        existing = next((entry for entry in data['datasets'] if entry.get('id') == args.run), None)
+                        if existing is None:
                             data['datasets'].insert(0, dict(id=args.run, label=args.label, description=benchmark+' · 实时轨迹与工具统计',
-                                folder='datasets/' + args.run, data=f'datasets/{args.run}/traces.json', benchmark=benchmark, visible=True))
+                                folder='datasets/' + args.run, data=f'datasets/{args.run}/traces.json', benchmark=benchmark, visible=True, **workspace))
+                            atomic_json(registry, data)
+                        elif existing.get('benchmark') != benchmark or any(existing.get(k) != v for k, v in workspace.items()):
+                            existing.update(benchmark=benchmark, description=benchmark+' · 实时轨迹与工具统计', **workspace)
                             atomic_json(registry, data)
                         subprocess.run([str(quest / 'workspace/viewer/venv/bin/python'), '-c', IMPORT_RUN_CODE,
                                         str(registry), args.run],

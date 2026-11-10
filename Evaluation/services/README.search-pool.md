@@ -142,7 +142,7 @@ an authenticated gateway, including a caller scope for idempotency keys.
   tests/test_tool_repair.py tests/test_serper_top10.py
 
 /root/autodl-tmp/Quest/workspace/env/bin/python scripts/validation/search_pool_load.py \
-  --output reports/search-pool-load.json
+  --output outputs/validation/search-pool-load.json
 ```
 
 The load harness launches isolated Redis/AOF, two replicas, a local mock upstream,

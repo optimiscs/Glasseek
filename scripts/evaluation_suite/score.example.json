@@ -1,0 +1,9 @@
+{
+  "browsecomp": {"model": "gpt-4o-2024-08-06", "key_env": "OPENAI_API_KEY", "workers": 4},
+  "hle": {"model": "o3-mini-2025-01-31", "key_env": "OPENAI_API_KEY", "workers": 4},
+  "drbench": {"workers": 1},
+  "liveresearchbench": {"provider": "openai", "model": "gpt-5-mini", "key_env": "OPENAI_API_KEY", "workers": 4},
+  "mind2web2": {},
+  "widesearch": {"native_config": "default_eval_config"},
+  "browsecomp_plus": {"model": "gpt-4.1", "key_env": "OPENAI_API_KEY"}
+}

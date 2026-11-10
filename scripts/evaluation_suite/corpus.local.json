@@ -1,0 +1,11 @@
+{
+  "corpus_revision": "b27b02bc3e45511b8b82a13e6f90ce761df726f6",
+  "retriever": "sqlite-fts5-bm25-porter-unicode61",
+  "index": "/root/autodl-tmp/Glasseek/data/evaluation/browsecomp-plus-corpus/corpus.sqlite",
+  "search_endpoint": "http://127.0.0.1:18085/search",
+  "fetch_endpoint": "http://127.0.0.1:18085",
+  "docid_events": "/root/autodl-tmp/Glasseek/data/evaluation/browsecomp-plus-corpus/retrieval-events.jsonl",
+  "live_web_disabled": true,
+  "managed_service": true,
+  "bash_network": "seccomp Unix sockets only; per-task Unix web bridge"
+}

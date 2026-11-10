@@ -42,6 +42,7 @@ import os
 import re
 import asyncio
 from glasseek_shared.extract_protocol import validate_urls, runtime_results
+from glasseek_shared.search_protocol import validate_queries,decode_query_array
 from typing import List, Dict, Any, Optional, TYPE_CHECKING
 import httpx  # noqa: F401 — kept at module top so tests can patch tools.web_tools.httpx
 # After the web-provider plugin migration (PR #25182), the Firecrawl SDK
@@ -868,7 +869,7 @@ def _ensure_web_plugins_loaded() -> None:
         logger.warning("Web plugin discovery failed (non-fatal): %s", exc)
 
 
-def web_search_tool(query: str, limit: int = 10) -> str:
+def web_search_tool(query: str | List[str], limit: int = 10) -> str:
     """
     Search the web for information using available search API backend.
 
@@ -879,7 +880,7 @@ def web_search_tool(query: str, limit: int = 10) -> str:
     Use web_extract_tool to get full content from specific URLs.
     
     Args:
-        query (str): The search query to look up
+        query (str | List[str]): One query or a batch of up to five queries
         limit (int): Maximum number of results to return (default: 10)
     
     Returns:
@@ -902,6 +903,28 @@ def web_search_tool(query: str, limit: int = 10) -> str:
     Raises:
         Exception: If search fails or API key is not set
     """
+    query=decode_query_array(query)
+    try:
+        queries = validate_queries(query)
+    except ValueError as exc:
+        return tool_error(str(exc), success=False)
+    if isinstance(query, list):
+        from concurrent.futures import ThreadPoolExecutor
+        # Discover providers once before workers start. Concurrent first-use
+        # discovery can otherwise expose a partially populated registry.
+        _ensure_web_plugins_loaded()
+        # Preserve duplicates, input order and each provider's original status.
+        # One failed query does not discard the other results.
+        with ThreadPoolExecutor(max_workers=len(queries)) as pool:
+            payloads = list(pool.map(lambda q: web_search_tool(q, limit=limit), queries))
+        results = []
+        for q, payload in zip(queries, payloads):
+            try:
+                result = json.loads(payload)
+            except (TypeError, ValueError):
+                result = payload
+            results.append({'query': q, 'result': result})
+        return json.dumps({'results': results}, ensure_ascii=False)
     try:
         limit = int(limit)
     except (TypeError, ValueError):
@@ -1640,13 +1663,16 @@ from tools.registry import registry, tool_error
 
 WEB_SEARCH_SCHEMA = {
     "name": "web_search",
-    "description": "Search the web for information. Returns up to 5 results by default with titles, URLs, and descriptions. The query is passed through to the configured backend, so operators such as site:domain, filetype:pdf, intitle:word, -term, and \"exact phrase\" may work when the backend supports them.",
+    "description": "Search the web with one query or up to 5 independent queries in one batch. A batch returns one results array containing each query and its original provider result, including errors. Returns up to 5 results per query by default. Backend-supported search operators may be used.",
     "parameters": {
         "type": "object",
         "properties": {
             "query": {
-                "type": "string",
-                "description": "The search query to look up on the web. You may include backend-supported operators such as site:example.com, filetype:pdf, intitle:word, -term, or \"exact phrase\"."
+                "oneOf": [
+                    {"type": "string", "minLength": 1, "pattern": "\\S"},
+                    {"type": "array", "items": {"type": "string", "minLength": 1, "pattern": "\\S"}, "minItems": 1, "maxItems": 5}
+                ],
+                "description": "One search query, or an array of 1 to 5 independent queries sharing the same result limit."
             },
             "limit": {
                 "type": "integer",
@@ -1686,11 +1712,11 @@ registry.register(
     name="web_search",
     toolset="web",
     schema=WEB_SEARCH_SCHEMA,
-    handler=lambda args, **kw: web_search_tool(args.get("query", ""), limit=args.get("limit", 10)),
+    handler=lambda args, **kw: web_search_tool(args.get("query", ""), limit=args.get("limit", 5)),
     check_fn=check_legacy_web_tools_available,
     requires_env=_web_requires_env(),
     emoji="🔍",
-    max_result_size_chars=100_000,
+    max_result_size_chars=500_000,  # Up to five original single-query budgets.
 )
 registry.register(
     name="web_extract",

@@ -278,6 +278,7 @@ class HermesClient:
             worker_config.write_text(json.dumps(dict(output=str(workspace_dir/'official-clm'),
                 question=build_query(spec, dataset=self.config.dataset),model=self.config.model,
                 base_url=self.config.base_url,context_length=self.config.context_length,max_steps=self.config.max_rounds,max_tokens=self.config.max_tokens,temperature=self.config.temperature,
+                max_tool_rounds=int(os.environ['GLASSEEK_MAX_TOOL_CALLS']) if os.environ.get('GLASSEEK_MAX_TOOL_CALLS') else None,
                 context_budget=(self.config.context_length or 32768)-(self.config.max_tokens or 4096),
                 session_id='clm-'+profile,snapshot=str(snapshot),started_at=time.time())))
             python=os.environ.get('GLASSEEK_CLM_PYTHON',str(root/'.cache/clm-official-env/bin/python'))
@@ -1272,6 +1273,8 @@ class MultiEndpointHermesClient:
 
 
 def build_query(spec: RunSpec, dataset: str = "") -> str:
+    if dataset == "suite_hle":
+        return spec.item.question
     _, answer_prompt = load_answer_prompt(dataset)
     return (
         f"{RESEARCH_TASK_PREAMBLE}\n\n"
