@@ -1,4 +1,5 @@
 """Native benchmark metrics and cumulative inference accounting (never estimates)."""
+from resume_runs import prediction_run, prediction_root
 import collections
 import csv
 import json
@@ -121,7 +122,7 @@ def native_metrics(folder,name):
 def write_report(args,states):
     root=args.output_root/args.run_id;cases=[];rows=[]
     for name,state in states.items():
-        pred=args.output_root/'predictions'/(args.run_id+'_'+name)/('suite_'+name)
+        pred=prediction_root(args,name)
         group=[]
         for p in sorted(pred.glob('conv/*/*.json')):
             row=load(p,{})
@@ -173,7 +174,7 @@ def write_report(args,states):
 def publish_scores(args,name,score,env,opaque_ids=None):
     """Reuse viewer's native score sidecars; multidimensional scores remain multidimensional."""
     import subprocess
-    pred=args.output_root/'predictions'/(args.run_id+'_'+name)/('suite_'+name)
+    pred=prediction_root(args,name)
     refs={r['id']:r for r in read(args.suite/'private/references.jsonl') if r['benchmark']==name}
     if opaque_ids is not None:refs={k:r for k,r in refs.items() if r['opaque_id'] in opaque_ids}
     paths=score/('author/scores.jsonl' if name=='gaia' else 'scores.jsonl')
@@ -193,5 +194,5 @@ def publish_scores(args,name,score,env,opaque_ids=None):
                 'prediction':row.get('model_response'),'judge_response':grade or evaluation['details'],'protocol':name,'native_scores_path':str(score)})
     viewer_env={**env,'GLASSEEK_VIEWER_OUTPUT_DIR':str(pred),'GLASSEEK_VIEWER_DATA_PATH':str(args.suite/'inference'/(name+'.jsonl')),'GLASSEEK_VIEWER_LIMIT':str(len(refs))}
     with (pred/'viewer.log').open('a') as log:
-        subprocess.run([env['EVAL_PYTHON'],str(ROOT/'Evaluation/services/viewer_publish.py'),'--run',args.run_id+'_'+name,
+        subprocess.run([env['EVAL_PYTHON'],str(ROOT/'Evaluation/services/viewer_publish.py'),'--run',prediction_run(args,name),
             '--dataset','suite_'+name,'--model',env.get('GLASSEEK_VIEWER_MODEL','glasseek-base-9b'),'--label',f'{name} · 原生评分','--once'],env=viewer_env,stdout=log,stderr=subprocess.STDOUT,check=False)

@@ -1,4 +1,5 @@
 """Bound global inference concurrency; grade completed trajectories during inference."""
+from resume_runs import prediction_run, prediction_root
 import concurrent.futures
 import json
 import os
@@ -26,7 +27,7 @@ def execute(args,plans,blocked,names,counts):
         queue = []
     def score_one(name,env):
         start=time.monotonic();state=states[name];packet=root/'score-inputs'/name
-        pred=args.output_root/'predictions'/(args.run_id+'_'+name)/('suite_'+name)
+        pred=prediction_root(args,name)
         try:
             if packet.exists():
                 m=load(packet/'manifest.json',{})
@@ -77,7 +78,7 @@ def execute(args,plans,blocked,names,counts):
                     else:slots+=budget
                     del running[name];states[name].update(infer_seconds=time.monotonic()-start,infer_exit=code)
                     if args.phase=='all' and schedule == 'dataset':
-                        pred=args.output_root/'predictions'/(args.run_id+'_'+name)/('suite_'+name)
+                        pred=prediction_root(args,name)
                         if any(load(p,{}).get('status')=='success' for p in pred.glob('conv/*/*.json')):
                             states[name]['state']='awaiting_score';judging[pool.submit(score_one,name,env)]=name
                         else:states[name].update(state='inference_error',reason='no completed predictions; no judge request made')

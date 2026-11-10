@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Run Glasseek evaluation, live viewing and native scoring from a Python CLI."""
+from resume_runs import prediction_run, prediction_root
 import argparse
 import datetime
 import json
@@ -94,7 +95,7 @@ def prepare_score(release, output, predroot, benchmark, corpus_config=None, opaq
 def infer_command(args, benchmark, count):
     sys.path.insert(0,str(ROOT/'Evaluation/services'))
     from eval_run import build
-    run=args.run_id+'_'+benchmark
+    run=prediction_run(args,benchmark)
     cmd,env=build(args.profile,'full',{'dataset':'suite_'+benchmark,'run':run,
                     'workers_per_endpoint':args.workers,'ramp_start':args.workers,
                     'ramp_max':args.workers,'expected_questions':count,'repeats':1},python_entry=True)
@@ -164,6 +165,8 @@ def infer_command(args, benchmark, count):
         j=cmd.index('--fetch-server-url');cmd[j+1]=cfg['fetch_endpoint']
         j=cmd.index('--fetch-watchdog-target');cmd[j+1]=''
         j=cmd.index('--tool-whitelist');cmd[j+1]='web'
+    from resume_runs import verify_model
+    verify_model(args, benchmark, cmd[cmd.index('--model')+1])
     return cmd,env
 
 
@@ -178,6 +181,7 @@ def build_parser():
     p.add_argument('--output-root',type=Path,default=ROOT/'Evaluation/output/suite5pct')
     p.add_argument('--corpus-config',type=Path);p.add_argument('--score-config',type=Path)
     p.add_argument('--system-prompt-file', type=Path, help='Override the research system prompt; HLE retains its official system prompt. User templates and tool schemas are unchanged.')
+    p.add_argument('--resume-run-id', action='append', default=[], help='Adopt compatible legacy run identities and grading ledgers; repeat for separate GPU runs. Source producers must be stopped.')
     p.add_argument('--research-prompt', choices=['legacy','arex-native'], default='legacy', help='Switch system + user prompts and native finish as one protocol')
     p.add_argument('--max-reviews', type=int, default=2)
     p.add_argument('--protocol-corrections', type=int, default=3)
@@ -241,6 +245,8 @@ def main(argv=None):
     summary=json.loads((args.suite/'summary.json').read_text());all_names=[r['benchmark'] for r in summary]
     names=all_names if args.benchmarks=='all' else args.benchmarks.split(',')
     if not names or any(n not in all_names for n in names) or len(set(names))!=len(names):p.error('invalid benchmark list')
+    from resume_runs import prepare as prepare_resume
+    resume_sources = prepare_resume(args, names)
     counts={r['benchmark']:r['selected'] for r in summary};plans=[];blocked=[]
     if args.phase in ('plan','infer','all'):
         for name in names:
@@ -270,6 +276,8 @@ def main(argv=None):
         'accept_confidence': args.accept_confidence, 'medium_confidence': args.medium_confidence,
         'sha256': {str(p.relative_to(ROOT)): sha(p) for p in sorted((ROOT/'Shared/glasseek_shared/research').glob('*.py'))}}
     launch_manifest['affinity_endpoints'] = args.affinity_endpoints
+    launch_manifest['prediction_runs'] = args.prediction_runs
+    launch_manifest['resume_sources'] = resume_sources
     for path in ('Evaluation_backend/agent/conversation_loop.py', 'Evaluation_backend/agent/chat_completion_helpers.py',
                  'Evaluation_backend/agent/turn_finalizer.py', 'Evaluation_backend/tools/web_tools.py',
                  'Shared/glasseek_shared/hermes/fetch_provider.py', 'Shared/glasseek_shared/endpoint_slots.py',
@@ -288,13 +296,15 @@ def main(argv=None):
     if identity.exists() and json.loads(identity.read_text())!=launch_manifest:raise ValueError('cannot resume with changed suite/runtime settings')
     dump(identity,launch_manifest)
     if args.phase in ('infer','all'):
+        from resume_runs import adopt_grading_ledger
+        adopt_grading_ledger(args, resume_sources)
         from orchestrate import execute
         execute(args,plans,blocked,names,counts)
         return
     if args.phase in ('prepare-score','score','all'):
         for name in names:
             packet=record_root/'score-inputs'/name
-            if not packet.exists():prepare_score(args.suite,packet,args.output_root/'predictions'/(args.run_id+'_'+name)/('suite_'+name),name,args.corpus_config)
+            if not packet.exists():prepare_score(args.suite,packet,prediction_root(args,name),name,args.corpus_config)
             if args.phase!='prepare-score':
                 cmd=[str(args.score_python) if args.score_python else os.environ.get('SUITE_SCORE_PYTHON',str(args.suite.parent/'score-venv/bin/python')),
                      str(Path(__file__).with_name('score.py')),'--suite',str(args.suite),'--packet',str(packet),
