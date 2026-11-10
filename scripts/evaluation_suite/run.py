@@ -183,7 +183,7 @@ def build_parser():
     p.add_argument('--protocol-corrections', type=int, default=3)
     p.add_argument('--accept-confidence', type=float, default=95)
     p.add_argument('--medium-confidence', type=float, default=90)
-    p.add_argument('--affinity-endpoints', help='Comma-separated same-model endpoints; --workers is PER endpoint. Keep datasets together, then hot-add idle GPUs to pending work.')
+    p.add_argument('--affinity-endpoints', help='Comma-separated same-model endpoints; --workers is PER endpoint. Prefer the current dataset; backfill free slots across datasets with a shared per-endpoint limit.')
     p.add_argument('--score-schedule', choices=['trajectory','dataset','off'], default='trajectory', help='Default: score each completed trajectory during inference')
     p.add_argument('--per-benchmark',type=int,help='Prepare a fixed-seed stratified child release with this many tasks per benchmark')
     p.add_argument('--seed',type=int,help='Sampling seed; defaults to the frozen suite seed and does not seed model decoding')
@@ -272,7 +272,8 @@ def main(argv=None):
     launch_manifest['affinity_endpoints'] = args.affinity_endpoints
     for path in ('Evaluation_backend/agent/conversation_loop.py', 'Evaluation_backend/agent/chat_completion_helpers.py',
                  'Evaluation_backend/agent/turn_finalizer.py', 'Evaluation_backend/tools/web_tools.py',
-                 'Shared/glasseek_shared/hermes/fetch_provider.py'):
+                 'Shared/glasseek_shared/hermes/fetch_provider.py', 'Shared/glasseek_shared/endpoint_slots.py',
+                 'Evaluation/browse_comp_eval/runner.py', 'Evaluation/browse_comp_eval/endpoint_registry.py'):
         launch_manifest['runtime_sha256'][path] = sha(ROOT/path)
     launch_manifest['system_prompt_override']={'path':str(args.system_prompt_file),'sha256':sha(args.system_prompt_file),'hle_policy':'official_unchanged'} if args.system_prompt_file else None
     launch_manifest.update(per_benchmark=args.per_benchmark,seed=args.seed,score_config_sha256=sha(args.score_config) if args.score_config else None)

@@ -133,17 +133,30 @@ PYTHONPATH=Shared:scripts/evaluation_suite .cache/clm-official-env/bin/python \
 ```
 
 With `--affinity-endpoints`, `--workers` means **per endpoint** (16 × 2 = 32).
-Both endpoints must serve the same model configured by `--profile`. Initially,
-whole datasets are assigned by descending size to the least-loaded GPU. Each
-GPU processes one dataset at a time. An idle GPU takes a queued whole dataset
-first; if none remain, it is hot-registered to an active dataset with unclaimed
-tasks. The existing least-active endpoint pool shares that queue at equal per-GPU
-capacity. This is work-conserving, not an exact 50/50 count guarantee for tasks
-with unequal durations. In-flight tasks retain their endpoint; there is only one
-runner/writer per dataset. No tasks are copied or restarted for balancing.
-`affinity.json`, `scheduling/*.json`, and the existing per-result model_base_url
-record assignments. Viewers and per-trajectory graders use the same dataset/run
-identity regardless of which GPU completes a task.
+Both endpoints must serve the same model configured by `--profile`. Dataset
+preferences initially follow size-balanced placement. Each endpoint prioritizes
+its current dataset, but does not reserve the whole GPU: if it has only two
+remaining trajectories, other datasets immediately receive its other 14 slots.
+A pending whole dataset is preferred over spreading another GPU's active dataset
+when both can fill the gap. Dispatch is recalculated each second and workers
+refresh grants every 0.5 seconds; completion/waiter checks run every 0.1–0.5 s.
+
+Every dataset process acquires a kernel-backed lease from the same per-endpoint
+slot pool before starting a trajectory. Current allocation is rechecked during
+acquisition; overlapping/stale registry updates cannot exceed 16 active leases
+on one endpoint. A lease spans the entire trajectory, including its tool waits,
+and is released after completion or process exit. Changing quotas to zero only
+pauses new claims, never cancels or moves in-flight work. This limit covers the
+single evaluation run, not unrelated experiments using the same model server.
+
+`affinity.json` records per-dataset endpoint quotas and active leases;
+`scheduling/*.json` records queued/in-flight work. There remains one runner/writer
+per dataset. No tasks are copied or restarted, and viewers and per-trajectory
+graders retain their existing identities. Fewer than 32 remaining trajectories,
+unavailable endpoints, or tool waits can still mean fewer than 32 active model
+decodes. Use a new run ID for changed scheduler code; old-run migration remains
+a separate operation. Either `legacy` or `arex-native` prompts work with this
+scheduler.
 
 `finish` accepts exactly `answer`, `evidences: [{evidence, url}]`, and finite
 numeric `confidence` in [0,100]. One native tool is allowed per turn, enforced
