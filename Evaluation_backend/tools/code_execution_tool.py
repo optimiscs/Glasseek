@@ -1994,6 +1994,12 @@ def build_execute_code_schema(enabled_sandbox_tools: set = None,
     # temp-dir staging and hermes-agent's own python.
     if filesystem_access == "none" and network_access == "none" and tool_access == "none":
         cwd_note = (
+            "This is a fresh, resource-limited scientific Python container. Host files, outbound "
+            "networking and Hermes tool RPC are unavailable. NumPy, SciPy, Pandas, Matplotlib, "
+            "SymPy and python-dateutil are installed. Limited parallel computation and private "
+            "/tmp files are supported; temporary files disappear after each call. Do not rely "
+            "on files, variables or imports from a previous call."
+        ) if os.environ.get('HERMES_REMOTE_PURE_COMPUTE') == 'Lab3090' else (
             "This is a pure-compute sandbox. Local host filesystem access, filesystem writes, "
             "outbound networking, and Hermes tool RPC are disabled. Do not use open(), pathlib, "
             "os file APIs, subprocesses for file access, socket, urllib, requests, or "
