@@ -262,6 +262,20 @@ def annotation_audit(name, rows):
     return result
 
 
+def sample_target(config, name, population):
+    """Allow explicit per-dataset top-up quotas without changing old releases."""
+    fixed = config.get('per_benchmark')
+    if isinstance(fixed, dict):
+        if name not in fixed:
+            raise ValueError('missing per_benchmark quota: ' + name)
+        fixed = fixed[name]
+    if fixed is not None:
+        if isinstance(fixed, bool) or not isinstance(fixed, int) or fixed < 0:
+            raise ValueError('per_benchmark quota must be a nonnegative integer')
+        return fixed
+    return math.floor(population * config['fraction'] + .5)
+
+
 def build(config_path, output):
     config = json.loads(Path(config_path).read_text()); output = Path(output)
     if output.exists(): raise FileExistsError(f'immutable release exists: {output}')
@@ -305,7 +319,7 @@ def build(config_path, output):
     for name, rows in parents.items():
         if name not in config.get('include_benchmarks', config['benchmarks']):continue
         eligible = [r for r in rows if name+'::'+r['id'] not in overlap.hits]
-        target = config.get('per_benchmark') or math.floor(len(rows)*config['fraction']+.5)
+        target = sample_target(config, name, len(rows))
         # Insufficient uncontaminated population is a real result, never refill
         # with excluded tasks. Report any shortfall explicitly.
         picked, quota = select(eligible, min(target,len(eligible)), config['seed'], name) if eligible else ([],{})

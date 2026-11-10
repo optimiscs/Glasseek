@@ -3,12 +3,22 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from suite import Overlap,apportion,canonical,dump,jsonl,normalize_parent,select
+from suite import Overlap,apportion,canonical,dump,jsonl,normalize_parent,select,sample_target
 from run import prepare_score
 from score import verify_packet
 
 
 class SamplingTests(unittest.TestCase):
+    def test_per_dataset_top_up_quotas(self):
+        config={'fraction':.05,'per_benchmark':{'browsecomp':37,'hle':0}}
+        self.assertEqual(sample_target(config,'browsecomp',1266),37)
+        self.assertEqual(sample_target(config,'hle',2158),0)
+        with self.assertRaises(ValueError):sample_target(config,'gaia',127)
+        for invalid in [-1,True,1.5]:
+            with self.assertRaises(ValueError):sample_target({'per_benchmark':invalid},'hle',2158)
+        self.assertEqual(sample_target({'fraction':.05},'hle',2158),108)
+        self.assertEqual(sample_target({'per_benchmark':100},'gaia',127),100)
+
     def test_corpus_events_are_scoped_to_the_current_run_and_task(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);release=root/'release';pred=root/'pred/current_browsecomp_plus/suite_browsecomp_plus'

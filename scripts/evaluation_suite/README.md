@@ -205,3 +205,14 @@ coordinator change does not silently resubmit grading calls. The launch manifest
 records the source identities and their hashes. Newly introduced datasets use
 the new run ID; report and prompt-comparison tools follow this mapping. This is
 explicit migration rather than bypassing the old launch manifest's code checks.
+
+### Balanced incremental samples
+
+The suite builder accepts `per_benchmark` as either one integer or a mapping
+from benchmark name to nonnegative quota. With `exclude_suites`, this freezes
+only new tasks, preserving existing immutable releases and results. Set each
+quota to the desired total minus the old assigned count; select both prompt
+variants from the same incremental release. Training-overlap exclusions still
+apply, and unavailable quotas are reported as shortfalls rather than refilled
+with excluded questions. Run the release through the existing `run.py --suite`
+entrypoint and combine old and incremental run IDs with `compare_prompts.py`.
