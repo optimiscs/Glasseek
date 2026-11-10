@@ -10,6 +10,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'Evaluation_backend
 from tools.quest_page_retrieval import select_pages
 
 class QuestPageRetrievalTest(unittest.IsolatedAsyncioTestCase):
+    async def test_challenge_and_empty_pages_never_reach_selector(self):
+        with patch.dict(os.environ,{'BROWSE_COMP_QUESTION':'question','GLASSEEK_QUEST_RETRIEVAL_URL':'http://selector'}):
+            results=await select_pages([{'content':'Title: Verifying your browser | OpenReview\nPlease complete the verification above.'},{'content':''}])
+        self.assertEqual([r['error_type'] for r in results],['access_challenge','empty_content'])
+        self.assertTrue(all(r['content']=='' and r['success'] is False for r in results))
+
     async def test_explicit_goal_overrides_global_question(self):
         seen=[]
         def handler(request):

@@ -34,7 +34,11 @@ def adapt(kwargs,cfg):
         spec=schema['json_schema']['schema']
         def validator(text):
             import jsonschema
-            value=json.loads(text);jsonschema.validate(value,spec);return value
+            value=json.loads(text)
+            try:jsonschema.validate(value,spec)
+            except jsonschema.ValidationError as exc:
+                raise ValueError('JSON schema violation at '+'.'.join(map(str,exc.path))) from exc
+            return value
     else:spec=None
     if spec is not None:
         out['response_format']={'type':'json_object'}
@@ -57,26 +61,56 @@ def install(cfg):
         path=Path(cfg['usage_log']);path.parent.mkdir(parents=True,exist_ok=True)
         usage=getattr(result,'usage',None)
         with path.open('a') as f:f.write(json.dumps({'model':getattr(result,'model',cfg['model']),'usage':usage.model_dump() if usage else None})+'\n')
-    def create(self,*args,**kwargs):
-        kw,validator=adapt(kwargs,cfg);result=sync(self,*args,**kw)
+        # Persist response BEFORE schema validation so failures remain auditable.
+        # Never save request headers, credentials, or client objects.
+        with path.with_name('api_responses.jsonl').open('a') as f:
+            f.write(json.dumps({'id':getattr(result,'id',None),
+                'model':getattr(result,'model',cfg['model']),
+                'choices':[{'finish_reason':c.finish_reason,'content':c.message.content,
+                            'reasoning_content':getattr(c.message,'reasoning_content',None)} for c in result.choices],
+                'usage':usage.model_dump() if usage else None},ensure_ascii=False)+'\n')
+    def validate(result,validator):
         record(result)
-        if validator:validator(result.choices[0].message.content)
-        return result
-    async def acreate(self,*args,**kwargs):
-        kw,validator=adapt(kwargs,cfg);result=await async_(self,*args,**kw)
-        record(result)
-        if validator:validator(result.choices[0].message.content)
-        return result
-    def parse(self,*args,**kwargs):
-        kw,validator=adapt(kwargs,cfg);result=sync(self,*args,**kw)
-        record(result)
-        if not validator:raise ValueError('native structured schema missing')
-        object.__setattr__(result.choices[0].message,'parsed',validator(result.choices[0].message.content));return result
-    async def aparse(self,*args,**kwargs):
-        kw,validator=adapt(kwargs,cfg);result=await async_(self,*args,**kw)
-        record(result)
-        if not validator:raise ValueError('native structured schema missing')
-        object.__setattr__(result.choices[0].message,'parsed',validator(result.choices[0].message.content));return result
+        if not validator:return None
+        if result.choices[0].finish_reason=='length':raise ValueError('structured judge output truncated')
+        return validator(result.choices[0].message.content)
+    def correction(kw,result,exc):
+        if cfg.get('usage_log'):
+            with Path(cfg['usage_log']).with_name('schema_errors.jsonl').open('a') as f:
+                f.write(json.dumps({'response_id':getattr(result,'id',None),'error_type':type(exc).__name__})+'\n')
+        return {**kw,'messages':[*kw['messages'],
+            {'role':'assistant','content':result.choices[0].message.content or ''},
+            {'role':'user','content':'The previous output did not satisfy the required JSON schema. Return a complete valid object using exactly that schema and the original evaluation criteria. Include every required field with its required type. Do not change the rubric or infer a passing grade from this correction request.'}]}
+    def request(self,args,kwargs,parsed=False):
+        kw,validator=adapt(kwargs,cfg)
+        if parsed and not validator:raise ValueError('native structured schema missing')
+        for attempt in range(2):
+            result=sync(self,*args,**kw)
+            try:value=validate(result,validator)
+            except (ValueError,TypeError) as exc:
+                if not validator:raise
+                kw=correction(kw,result,exc)
+                if attempt:raise
+                continue
+            if parsed:object.__setattr__(result.choices[0].message,'parsed',value)
+            return result
+    async def arequest(self,args,kwargs,parsed=False):
+        kw,validator=adapt(kwargs,cfg)
+        if parsed and not validator:raise ValueError('native structured schema missing')
+        for attempt in range(2):
+            result=await async_(self,*args,**kw)
+            try:value=validate(result,validator)
+            except (ValueError,TypeError) as exc:
+                if not validator:raise
+                kw=correction(kw,result,exc)
+                if attempt:raise
+                continue
+            if parsed:object.__setattr__(result.choices[0].message,'parsed',value)
+            return result
+    def create(self,*args,**kwargs):return request(self,args,kwargs)
+    async def acreate(self,*args,**kwargs):return await arequest(self,args,kwargs)
+    def parse(self,*args,**kwargs):return request(self,args,kwargs,True)
+    async def aparse(self,*args,**kwargs):return await arequest(self,args,kwargs,True)
     Completions.create=create;AsyncCompletions.create=acreate
     Completions.parse=parse;AsyncCompletions.parse=aparse;Completions._glasseek_suite_transport=True
     if cfg.get('responses_as_chat'):

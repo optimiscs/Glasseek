@@ -89,10 +89,14 @@ def execute(args,plans,blocked,names,counts):
                 if queue or running or judging or (affinity and affinity.pending):time.sleep(1)
             if incremental:incremental.drain()
         finally:
-            if incremental:incremental.close()
             for proc,_,_,log,_ in running.values():
                 if proc.poll() is None:proc.terminate()
+            for name,(proc,_,_,log,_) in running.items():
+                try:proc.wait(timeout=30)
+                except subprocess.TimeoutExpired:proc.kill();proc.wait()
                 log.close()
+                states[name]['state']='interrupted'
+            if incremental:incremental.close()
             if affinity:affinity.close()
             write_report(args,states)
     print('Report: '+str(root/'report.json'),flush=True)

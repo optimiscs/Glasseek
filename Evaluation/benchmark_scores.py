@@ -52,7 +52,7 @@ def task_scores(folder, benchmark, references):
             metrics = [metric('correct', '答案正确', correct)] if valid else []
             judge = row.get('judge') or {}
             if benchmark == 'hle' and valid and isinstance(judge.get('confidence'), (int, float)):
-                metrics.append(metric('confidence', '评审置信度', judge['confidence'], 100))
+                metrics.append(metric('confidence', '被评模型自报置信度（评委提取）', judge['confidence'], 100))
             assign(key, metrics, judge or row, correct if valid else None, 'scored' if valid else 'error')
     elif benchmark == 'browsecomp_plus':
         for reference in references:

@@ -2,10 +2,21 @@
 import logging
 import os
 import time
+import re
 
 import httpx
 
 logger = logging.getLogger(__name__)
+
+def page_failure(body):
+    """Recognize access/error pages, not articles merely discussing CAPTCHA."""
+    head = body[:1800].lower()
+    patterns = (r'title:\s*(?:verifying your browser|just a moment|access denied)',
+                r'warning:.*(?:requiring captcha|401 unauthorized|403 forbidden)',
+                r'please complete the verification above',
+                r'^(?:\s*#+\s*)?(?:sign in|log in) to (?:continue|view|access)',
+                r'^(?:\s*#+\s*)?(?:403 forbidden|401 unauthorized|access denied)\s*$')
+    return 'access_challenge' if any(re.search(p,head,re.M) for p in patterns) else None
 
 async def select_pages(results, goal=""):
     if not isinstance(goal, str):
@@ -22,7 +33,11 @@ async def select_pages(results, goal=""):
             if not isinstance(result, dict) or result.get('error'):
                 continue
             body = result.get('raw_content') or result.get('content') or ''
-            if not body.strip():
+            failure = page_failure(body) if body.strip() else 'empty_content'
+            if failure:
+                result.update(content='', success=False, status='unavailable',
+                              error='No source text obtained: ' + failure, error_type=failure)
+                result.pop('raw_content', None)
                 continue
             started = time.monotonic()
             try:

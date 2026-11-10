@@ -21,11 +21,11 @@ class TransportTests(unittest.TestCase):
         class Verdict(BaseModel):
             correct:Literal['yes','no']
             strict:Literal[True]
-        captured=[]
+        captured=[];answers=[]
         def handle(req):
             captured.append(json.loads(req.content))
             return httpx.Response(200,json={'id':'offline','object':'chat.completion','created':0,'model':'flash',
-                'choices':[{'index':0,'finish_reason':'stop','message':{'role':'assistant','content':'{"correct":"yes","strict":true}'}}],
+                'choices':[{'index':0,'finish_reason':'stop','message':{'role':'assistant','content':answers.pop(0) if answers else '{"correct":"yes","strict":true}'}}],
                 'usage':{'prompt_tokens':100,'completion_tokens':20,'total_tokens':120}})
         with tempfile.TemporaryDirectory() as d:
             usage=Path(d)/'api_usage.jsonl';install({'model':'flash','transport':'json_object_local_schema','usage_log':str(usage),'responses_as_chat':True})
@@ -35,9 +35,20 @@ class TransportTests(unittest.TestCase):
             self.assertEqual(captured[0]['messages'][-1]['content'],'unchanged native rubric')
             self.assertEqual(captured[0]['model'],'flash');self.assertEqual(captured[0]['response_format'],{'type':'json_object'})
             self.assertEqual(json.loads(usage.read_text())['usage']['total_tokens'],120)
+            self.assertEqual(json.loads(usage.with_name('api_responses.jsonl').read_text())['choices'][0]['content'],'{"correct":"yes","strict":true}')
             result=client.responses.create(model='original',input='unchanged BC+ rubric',max_output_tokens=4096)
             self.assertEqual(result.output_text,'{"correct":"yes","strict":true}')
             self.assertEqual(captured[-1]['messages'],[{'role':'user','content':'unchanged BC+ rubric'}])
+            answers.extend(['{"correct":true}', '{"correct":"no","strict":true}'])
+            before=len(captured)
+            fixed=client.beta.chat.completions.parse(model='original',messages=[{'role':'user','content':'unchanged native rubric'}],response_format=Verdict)
+            self.assertEqual(fixed.choices[0].message.parsed.correct,'no')
+            self.assertEqual(len(captured)-before,2)
+            self.assertTrue(usage.with_name('schema_errors.jsonl').exists())
+            answers.extend(['{"correct":true}','{"correct":true}'])
+            before=len(captured)
+            with self.assertRaises(ValueError):client.beta.chat.completions.parse(model='original',messages=[{'role':'user','content':'unchanged native rubric'}],response_format=Verdict)
+            self.assertEqual(len(captured)-before,2)
             client.close()
 
 

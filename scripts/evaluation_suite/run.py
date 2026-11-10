@@ -143,6 +143,7 @@ def infer_command(args, benchmark, count):
         # A caller's shell must not accidentally mix protocols in a legacy run.
         env.pop('GLASSEEK_RESEARCH_PROTOCOL', None)
     env['GLASSEEK_ANSWER_PROMPT_REGISTRY']=str(args.suite/'prompts/registry.json')
+    env['GLASSEEK_HARNESS_REVISION']='20261110-safety-eval-fixes'
     env['GLASSEEK_MAX_TOOL_CALLS']=str(args.max_tool_calls);env['NO_TOTAL_TIMEOUT']='1'
     # The suite intentionally removes the wall-clock timeout for every profile.
     if '--timeout-seconds' in cmd:
@@ -259,7 +260,19 @@ def main(argv=None):
         if args.phase=='plan':return
         if blocked and not args.allow_blocked:raise SystemExit('preflight blocked; select explicit available --benchmarks or configure missing backend, or use --allow-blocked')
     record_root=args.output_root/args.run_id;record_root.mkdir(parents=True,exist_ok=True)
+    if args.phase in ('infer','all'):
+        from preflight import probe_vision
+        checked={}
+        for _,cmd,env in plans:
+            if 'vision' not in cmd[cmd.index('--tool-whitelist')+1].split(','):continue
+            endpoints=args.affinity_endpoints or (cmd[cmd.index('--base-urls')+1] if '--base-urls' in cmd else '')
+            if not endpoints:raise ValueError('vision preflight needs explicit endpoints')
+            for endpoint in endpoints.split(','):
+                if endpoint not in checked:
+                    checked[endpoint]=probe_vision(endpoint,cmd[cmd.index('--model')+1],env.get('HERMES_API_KEY','EMPTY'))
+        dump(record_root/'capability-preflight.json',checked)
     launch_manifest={'suite_sha256':sha(args.suite/'manifest.json'),'benchmarks':names,'workers':args.workers,
+        'harness_revision':'20261110-safety-eval-fixes',
         'context_manager':args.context_manager,'url_mode':args.url_mode,'profile':args.profile,
         'runtime_sha256':{p:sha(ROOT/p) for p in ['Evaluation/config/eval_profiles.json','Evaluation/services/eval_run.py',
              'Evaluation/services/native_eval.py','Evaluation/scripts/fetch_watchdog.py','Evaluation/browse_comp_eval/run.py',
@@ -269,6 +282,7 @@ def main(argv=None):
              'Shared/glasseek_shared/context/official/web.py',
              '../Quest/evaluation/official_dataset/run.py','../Quest/evaluation/official_dataset/score_browsecomp_plus.py',
              'Evaluation/browse_comp_eval/hermes_client.py','Evaluation/services/clm_worker.py','Evaluation/config/prompts/hle-system.txt',
+             'Evaluation_backend/plugins/browse_comp_guard/__init__.py','Evaluation_backend/tools/quest_page_retrieval.py','Evaluation_backend/run_agent.py',
              'Shared/glasseek_shared/context/official/run.py','Shared/glasseek_shared/hermes/url_registry.py']},
         'corpus_config_sha256':sha(args.corpus_config) if args.corpus_config else None}
     launch_manifest['research_protocol'] = {'name': args.research_prompt,
@@ -313,4 +327,10 @@ def main(argv=None):
                 subprocess.run(cmd,check=True,env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'})
 
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    import signal
+    # Shell background jobs can inherit SIGINT=SIG_IGN. Restore an orderly
+    # interrupt so the coordinator stops producers and preserves checkpoints.
+    signal.signal(signal.SIGINT,signal.default_int_handler)
+    signal.signal(signal.SIGTERM,signal.default_int_handler)
+    main()

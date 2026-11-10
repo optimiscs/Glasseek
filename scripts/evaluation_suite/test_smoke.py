@@ -42,6 +42,10 @@ class SmokeTests(unittest.TestCase):
             dump(parent/'manifest.json',{'files':{}});before=sha(parent/'manifest.json')
             child=prepare(parent,2);h=sha(child/'manifest.json');self.assertEqual(h,sha(prepare(parent,2)/'manifest.json'));self.assertEqual(before,sha(parent/'manifest.json'))
             self.assertEqual(len((child/'private/references.jsonl').read_text().splitlines()),4)
+            replay=prepare(parent,selected_ids={'a0','a2','b1'})
+            self.assertEqual([r['selected'] for r in json.loads((replay/'summary.json').read_text())],[2,1])
+            self.assertEqual(sha(replay/'manifest.json'),sha(prepare(parent,selected_ids={'b1','a2','a0'})/'manifest.json'))
+            with self.assertRaises(ValueError):prepare(parent,selected_ids={'absent'})
 
     def test_native_counters_include_cache_once_and_edits(self):
         with tempfile.TemporaryDirectory() as d,patch.dict(os.environ,{'HERMES_HOME':d}):

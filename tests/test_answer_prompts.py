@@ -40,6 +40,14 @@ def test_hle_uses_original_question_without_browsecomp_guidance():
     assert build_query(RunSpec('row','row__r1',1,item),dataset='suite_hle') == item.question
 
 
+def test_reports_and_tables_do_not_inherit_single_entity_search_quotas():
+    item=DatasetItem('row','Compare the markets.','PRIVATE','Research',1)
+    for dataset in ['suite_drbench','suite_liveresearchbench','suite_widesearch']:
+        prompt=build_query(RunSpec('row','row__r1',1,item),dataset=dataset)
+        assert 'single entity' not in prompt and '2-3 short query' not in prompt
+        assert item.question in prompt and 'PRIVATE' not in prompt
+
+
 def test_hle_routes_official_system_prompt():
     import ast
     from scripts.evaluation_suite import run

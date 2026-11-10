@@ -2,15 +2,29 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+import subprocess
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
 from suite import ROOT
-from native_fixes import fact_statistics,fix_widesearch
+from native_fixes import fact_statistics,fix_widesearch,clean_author_checkout
 
 
 class NativeFixTests(unittest.TestCase):
+    def test_clean_source_copy_ignores_bytecode_but_rejects_modified_code(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d);source=p/'source';source.mkdir()
+            def git(*args):return subprocess.run(['git','-C',str(source),*args],check=True,capture_output=True)
+            git('init');(source/'main.py').write_text('print(1)\n');git('add','main.py')
+            git('-c','user.name=Test','-c','user.email=test@example.org','commit','-m','fixture')
+            (source/'__pycache__').mkdir();(source/'__pycache__/main.pyc').write_bytes(b'cache')
+            clean_author_checkout(source,p/'clean')
+            assert not (p/'clean/__pycache__').exists()
+            assert (p/'clean/main.py').read_text()=='print(1)\n'
+            (source/'main.py').write_text('print(2)\n')
+            with self.assertRaises(subprocess.CalledProcessError):clean_author_checkout(source,p/'bad')
+
     def setUp(self):
         original_path = sys.path[:]
         original_modules = {k:v for k,v in sys.modules.items() if k == 'src' or k.startswith('src.')}

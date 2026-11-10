@@ -5209,7 +5209,7 @@ class AIAgent:
             for denied in denied_calls:
                 messages.append({"role": "tool", "tool_call_id": denied.id,
                     "name": denied.function.name,
-                    "content": '{"status":"tool_budget_denied","executed":false,"error":"Tool call budget exhausted. Give the final answer using existing evidence; no more tools are allowed."}'})
+                    "content": '{"status":"tool_budget_denied","executed":false,"error":"Tool call budget exhausted. No more tools are allowed. Answer only what existing evidence supports; explicitly state unresolved requirements and uncertainty. Do not guess or claim the task was solved."}'})
             self._executing_tools = False
 
     def _dispatch_delegate_task(self, function_args: dict) -> str:

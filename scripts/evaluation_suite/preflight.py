@@ -8,6 +8,25 @@ from pathlib import Path
 from suite import ROOT,dump,read,verify
 
 
+def probe_vision(endpoint, model, api_key):
+    """Exercise image input, not just /models; fail before dispatching tasks."""
+    import base64,io
+    import httpx
+    from PIL import Image
+    image=io.BytesIO();Image.new('RGB',(32,32),(255,0,0)).save(image,format='PNG')
+    payload={'model':model,'messages':[{'role':'user','content':[
+        {'type':'text','text':'Name the single color of this image. Answer one word.'},
+        {'type':'image_url','image_url':{'url':'data:image/png;base64,'+base64.b64encode(image.getvalue()).decode()}}]}],
+        'max_tokens':64,'temperature':0,'chat_template_kwargs':{'enable_thinking':False}}
+    with httpx.Client(timeout=90,trust_env=False) as client:
+        r=client.post(endpoint.rstrip('/')+'/chat/completions',json=payload,
+                      headers={'Authorization':'Bearer '+api_key})
+        r.raise_for_status();response=r.json()
+    text=response['choices'][0]['message'].get('content','').strip().lower()
+    if text.strip(' .!"。') not in {'red','红','红色'}:raise ValueError('vision smoke did not identify the diagnostic image')
+    return {'endpoint':endpoint,'model':model,'status':'verified','response':text}
+
+
 def audit(suite,corpus_config=None):
     suite=Path(suite).resolve();verify(suite);base=suite.parent
     refs=list(read(suite/'private/references.jsonl'));result={}
