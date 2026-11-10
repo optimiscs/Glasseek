@@ -42,3 +42,32 @@ def test_verdict_parser_accepts_formatting_but_rejects_conflict():
     assert parse_binary_verdict('correct:no\ncorrect: NO')=='no'
     for text in ['correct: yes\ncorrect: no','The answer is probably correct: yes','correct: maybe']:
         with pytest.raises(ValueError):parse_binary_verdict(text)
+
+
+def test_real_run_spec_converts_through_strict_wire_before_host_metadata(tmp_path,monkeypatch):
+    from browse_comp_eval import hermes_client as hc
+    from browse_comp_eval.dataset import DatasetItem,RunSpec
+    from browse_comp_eval.sandbox_protocol import SandboxRunResult
+    from types import SimpleNamespace
+    config=hc.HermesConfig(hermes_bin='unused',api_key='offline',base_url='http://localhost/v1',model='test',provider='custom',save_name='test',dataset='suite_hle',max_rounds=2,timeout_seconds=None,toolsets=[],skills=[])
+    client=hc.HermesClient(config)
+    for key in ['GLASSEEK_CONTEXT_MANAGER','GLASSEEK_MAX_TOOL_CALLS','GLASSEEK_RESUME_INTERRUPTED','GLASSEEK_RESEARCH_PROTOCOL']:monkeypatch.delenv(key,raising=False)
+    monkeypatch.setenv('HERMES_HOME',str(tmp_path/'hermes'))
+    monkeypatch.setenv('GLASSEEK_HARNESS_REVISION','tested')
+    monkeypatch.setattr(client,'_setup_profile',lambda *a,**kw:None)
+    monkeypatch.setattr(client,'_build_env',lambda *a,**kw:{})
+    monkeypatch.setattr(client,'_build_chat_command',lambda *a:['unused'])
+    monkeypatch.setattr(client,'_browser_cdp_url_for_spec',lambda *a,**kw:'')
+    monkeypatch.setattr(hc.subprocess,'Popen',lambda *a,**kw:SimpleNamespace(returncode=0,pid=123,communicate=lambda **kw:('','')))
+    monkeypatch.setattr(hc,'extract_session_id',lambda *a:'test-session')
+    session={'session_id':'test-session','messages':[{'role':'user','content':'q'},
+        {'role':'tool','content':'{"status":"tool_budget_denied","error":"limit"}'},
+        {'role':'assistant','content':'unknown','finish_reason':'stop'}]}
+    monkeypatch.setattr(hc,'load_session',lambda *a,**kw:session)
+    spec=RunSpec('q','q__r1',1,DatasetItem('q','q','PRIVATE','research',1))
+    wire=client.run_request(client.build_request(spec,1),tmp_path/'wire')
+    assert isinstance(wire,SandboxRunResult)
+    assert 'termination_reason' not in wire.to_dict() and 'answer' not in wire.to_dict()
+    record=client.run(spec,tmp_path/'host',1)
+    assert record['termination_reason']=='tool_budget_exhausted'
+    assert record['harness_revision']=='tested' and record['answer']=='PRIVATE'

@@ -157,6 +157,12 @@ class HermesClient:
 
         request = self.build_request(spec, attempt)
         result = self.run_request(request, workspace_dir).to_dict()
+        # Host-side audit metadata must never change the strict worker wire schema.
+        budget_exhausted = any(m.get('role')=='tool' and '"status":"tool_budget_denied"' in str(m.get('content','')).replace(' ','')
+                               for h in result.get('history',[]) for m in h.get('messages',[]))
+        result['termination_reason'] = 'tool_budget_exhausted' if budget_exhausted else 'generation_truncated' if 'length' in str(result.get('final_assistant_error')) else result.get('status')
+        result['task_solved'] = None
+        result['harness_revision'] = os.environ.get('GLASSEEK_HARNESS_REVISION')
         # The reference answer is host-only and is appended after the protocol
         # boundary so it can never be uploaded to a sandbox.
         result["answer"] = spec.item.answer
@@ -445,9 +451,6 @@ class HermesClient:
                 error = final_assistant_error = 'Persisted final answer differs from accepted finish'
                 model_response = ''
         mcp_registration_error = ""
-        tool_budget_exhausted = any(
-            m.get('role') == 'tool' and '"status":"tool_budget_denied"' in str(m.get('content','')).replace(' ', '')
-            for m in (session or {}).get('messages', []))
         if "browsecomp-plus-bm25" in self.config.toolsets:
             mcp_registration_error = browsecomp_plus_mcp_registration_error(
                 attempt_agent_log
@@ -472,9 +475,6 @@ class HermesClient:
             "status": status,
             "error": error,
             "failure_type": failure_type,
-            "termination_reason": 'tool_budget_exhausted' if tool_budget_exhausted else 'generation_truncated' if 'length' in str(final_assistant_error) else status,
-            "task_solved": None,
-            "harness_revision": env.get('GLASSEEK_HARNESS_REVISION'),
             "attempt_consumed": attempt_consumed,
             "trace_complete": trace_complete,
             "returncode": returncode,
