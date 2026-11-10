@@ -12,14 +12,14 @@ from plugins.web.search_server.provider import _payload
 class SerperTop10Tests(unittest.TestCase):
     def test_enabled_requests_and_returns_ten(self):
         with patch.dict(os.environ, {'GLASSEEK_SEARCH_TOP10': '1'}), \
-             patch('plugins.web.search_server._SEARCH.search', return_value={'success': True}) as search:
+             patch('tools.web_tools.web_search_tool', return_value='{}') as search:
             handle_search_server({'query': 'test', 'limit': 3})
             self.assertEqual(search.call_args.kwargs['limit'], 10)
             self.assertEqual(_payload('test')['num'], 10)
 
     def test_default_is_unchanged(self):
         with patch.dict(os.environ, {}, clear=True), \
-             patch('plugins.web.search_server._SEARCH.search', return_value={'success': True}) as search:
+             patch('tools.web_tools.web_search_tool', return_value='{}') as search:
             handle_search_server({'query': 'test'})
             self.assertEqual(search.call_args.kwargs['limit'], 5)
             self.assertNotIn('num', _payload('test'))

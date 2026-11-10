@@ -1,0 +1,67 @@
+{
+  "browsecomp": {
+    "model": "deepseek-flash",
+    "base_url": "https://api.deepseek.com/v1",
+    "key_env": "OPENAI_API_KEY",
+    "credential_file": "/root/autodl-tmp/Quest/workspace/strict-reproduction/.secrets/api_config.json",
+    "credential_field": "common.JUDGE_OPENAI_API_KEY",
+    "workers": 2,
+    "transport": "json_object_local_schema",
+    "text_only": true
+  },
+  "hle": {
+    "model": "deepseek-flash",
+    "base_url": "https://api.deepseek.com/v1",
+    "key_env": "OPENAI_API_KEY",
+    "credential_file": "/root/autodl-tmp/Quest/workspace/strict-reproduction/.secrets/api_config.json",
+    "credential_field": "common.JUDGE_OPENAI_API_KEY",
+    "workers": 2,
+    "transport": "json_object_local_schema",
+    "text_only": true
+  },
+  "drbench": {
+    "workers": 2,
+    "api_config": "/root/autodl-tmp/Quest/workspace/strict-reproduction/.secrets/api_config.json"
+  },
+  "liveresearchbench": {
+    "provider": "openai",
+    "model": "deepseek-flash",
+    "base_url": "https://api.deepseek.com/v1",
+    "key_env": "OPENAI_API_KEY",
+    "credential_file": "/root/autodl-tmp/Quest/workspace/strict-reproduction/.secrets/api_config.json",
+    "credential_field": "common.JUDGE_OPENAI_API_KEY",
+    "workers": 2,
+    "transport": "json_object_local_schema",
+    "text_only": true
+  },
+  "mind2web2": {
+    "model": "deepseek-flash",
+    "base_url": "https://api.deepseek.com/v1",
+    "key_env": "OPENAI_API_KEY",
+    "credential_file": "/root/autodl-tmp/Quest/workspace/strict-reproduction/.secrets/api_config.json",
+    "credential_field": "common.JUDGE_OPENAI_API_KEY",
+    "transport": "json_object_local_schema",
+    "text_only": true
+  },
+  "widesearch": {
+    "model": "deepseek-flash",
+    "base_url": "https://api.deepseek.com/v1",
+    "key_env": "OPENAI_API_KEY",
+    "credential_file": "/root/autodl-tmp/Quest/workspace/strict-reproduction/.secrets/api_config.json",
+    "credential_field": "common.JUDGE_OPENAI_API_KEY",
+    "native_config": "default_eval_config",
+    "transport": "json_object_local_schema",
+    "text_only": true
+  },
+  "browsecomp_plus": {
+    "model": "deepseek-flash",
+    "base_url": "https://api.deepseek.com/v1",
+    "key_env": "OPENAI_API_KEY",
+    "credential_file": "/root/autodl-tmp/Quest/workspace/strict-reproduction/.secrets/api_config.json",
+    "credential_field": "common.JUDGE_OPENAI_API_KEY",
+    "workers": 2,
+    "transport": "json_object_local_schema",
+    "text_only": true,
+    "responses_as_chat": true
+  }
+}

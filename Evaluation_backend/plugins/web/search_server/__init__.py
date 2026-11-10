@@ -26,7 +26,7 @@ def handle_search_server(args: dict, **_) -> str:
     from tools.interrupt import is_interrupted
 
     args = args if isinstance(args, dict) else {}
-    query = str(args.get("query", "") or "")
+    query = args.get("query", "")
     try:
         limit = 10 if os.getenv("GLASSEEK_SEARCH_TOP10") == "1" else max(1, int(args.get("limit", 5)))
     except (TypeError, ValueError):
@@ -34,7 +34,9 @@ def handle_search_server(args: dict, **_) -> str:
     if is_interrupted():
         return json.dumps({"success": False, "error": "Interrupted"})
     try:
-        return json.dumps(_SEARCH.search(query, limit=limit), ensure_ascii=False)
+        # Share the canonical batch dispatcher; providers accept one query only.
+        from tools.web_tools import web_search_tool
+        return web_search_tool(query, limit=limit)
     except Exception:
         logger.error("Search Server web_search handler failed")
         return json.dumps({"success": False, "error": "web_search failed"})

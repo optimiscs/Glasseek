@@ -1,0 +1,143 @@
+{
+  "version": 1,
+  "seed": 42,
+  "fraction": 0.05,
+  "exclude_current34": "/root/autodl-tmp/Glasseek/data/evaluation/exclusions/clm-hermes-34.jsonl",
+  "training_sources": [
+    {
+      "glob": "/root/autodl-tmp/Glasseek/data/DeepForge/deepforge-sft.jsonl",
+      "scope": "downloaded_candidate_pool"
+    },
+    {
+      "glob": "/root/autodl-tmp/Glasseek/data/OpenSeeker-v1-Data/openseeker_v1_data.jsonl",
+      "scope": "downloaded_candidate_pool"
+    },
+    {
+      "glob": "/root/autodl-tmp/Glasseek/data/LiteResearcher-SFT-Data/data/*.parquet",
+      "scope": "downloaded_candidate_pool"
+    },
+    {
+      "glob": "/root/autodl-tmp/Glasseek/data/REDSearcher_SFT_10K/data/*.parquet",
+      "scope": "downloaded_candidate_pool"
+    },
+    {
+      "glob": "/root/autodl-tmp/Glasseek/data/QUEST-SFT-Data-Objective/data/*.parquet",
+      "scope": "downloaded_candidate_pool"
+    },
+    {
+      "glob": "/root/autodl-tmp/Glasseek/data/QUEST-SFT-Data-Open-ended/data/*.parquet",
+      "scope": "downloaded_candidate_pool"
+    },
+    {
+      "glob": "/root/autodl-tmp/Glasseek/data/SearchSwarm-SFT/train.parquet",
+      "scope": "downloaded_candidate_pool"
+    },
+    {
+      "glob": "/root/autodl-tmp/Glasseek/data/Glasseek-SFT-5.7K/train.jsonl",
+      "scope": "downloaded_candidate_pool"
+    },
+    {
+      "glob": "/root/autodl-tmp/Glasseek/data/OpenResearcher-Dataset/seed_*/*.parquet",
+      "scope": "downloaded_candidate_pool_excluded_from_current_preprocessing"
+    },
+    {
+      "glob": "/root/autodl-tmp/Glasseek/data/glasseek/**/train*.parquet",
+      "scope": "local_sft_and_rl_train_versions"
+    },
+    {
+      "glob": "/root/autodl-tmp/Glasseek/Evaluation/data/runtime/datasets/*/*.jsonl",
+      "scope": "local_declared_sft_rl_sources"
+    }
+  ],
+  "training_questions": "/root/autodl-tmp/Glasseek/data/evaluation/suite5pct-v1/training/questions.jsonl",
+  "training_manifest": "/root/autodl-tmp/Glasseek/data/evaluation/suite5pct-v1/training/verified-manifest.json",
+  "benchmarks": {
+    "browsecomp": {
+      "files": [
+        "/root/autodl-tmp/Glasseek/data/evaluation/suite5pct-v1/sources/BrowseComp/browsecomp-encrypted.csv"
+      ],
+      "expected_population": 1266,
+      "version": "OpenAI encrypted release, 1266; local bytes SHA256 in manifest; grader 652c89d0ca9df547706735883097e9537d40dc47",
+      "protocol": "BrowseComp author GRADER_TEMPLATE; yes/no capture correction explicitly recorded",
+      "answer_prompt": "Return your final response in exactly this format:\nExplanation: <brief explanation of the evidence>\nExact Answer: <short precise answer>\nConfidence: <percentage from 0% to 100%>"
+    },
+    "browsecomp_plus": {
+      "files": [
+        "/root/autodl-tmp/Glasseek/data/evaluation/suite5pct-v1/sources/browsecomp-plus/decrypted.jsonl"
+      ],
+      "expected_population": 830,
+      "version": "complete author-decrypted 830-query snapshot; local bytes SHA256; qrels + evaluator 046949032b0328319cc9a02663a759ec601d9402",
+      "protocol": "BrowseComp-Plus author answer accuracy, evidence recall, calibration, retrieval statistics",
+      "answer_prompt": "Provide the final answer with a brief explanation and confidence (0% to 100%)."
+    },
+    "gaia": {
+      "files": [
+        "/root/autodl-tmp/Glasseek/data/evaluation/suite5pct-v1/sources/GAIA/2023/validation/metadata.parquet"
+      ],
+      "expected_population": 127,
+      "version": "GAIA-benchmark/GAIA@682dd723ee1e1697e00360edccf2366dc8418dd9, 2023 validation, complete file_name-empty view (127/165)",
+      "protocol": "GAIA normalized exact question_scorer@9f133d71362e77b3539f1514f31b9c101a545fec",
+      "answer_prompt": "Give your final answer as a number, as few words as possible, or a comma separated list. Put only that concise answer after a final line labeled FINAL ANSWER:."
+    },
+    "hle": {
+      "files": [
+        "/root/autodl-tmp/Glasseek/data/evaluation/suite5pct-v1/sources/hle/data/test-00000-of-00001.parquet"
+      ],
+      "expected_population": 2158,
+      "version": "cais/hle@5a81a4c7271a2a2a312b9a690f0c2fde837e4c29, test, complete image-empty view (2158/2500)",
+      "protocol": "HLE official JUDGE_PROMPT + ExtractedAnswer structured schema@22ed3074b1e7b134bcbc09028d0ba320839b0655",
+      "answer_prompt": "Return your final response with Explanation:, Exact Answer:, and Confidence: (0% to 100%)."
+    },
+    "drbench": {
+      "files": [
+        "/root/autodl-tmp/Glasseek/data/evaluation/suite5pct-v1/evaluators/deep-research-bench/data/prompt_data/query.jsonl"
+      ],
+      "expected_population": 100,
+      "version": "deep-research-bench@f2735b5c3636759c22f9e936c0232de8bf545b67, full query100",
+      "protocol": "DRBench all RACE + FACT modules; incomplete FACT stays unscored",
+      "answer_prompt": "Write the complete research report requested, supported with source citations. Follow the language and formatting requested in the question."
+    },
+    "liveresearchbench": {
+      "files": [
+        "/root/autodl-tmp/Glasseek/data/evaluation/suite5pct-v1/sources/LiveResearchBenchFull/question_with_checklist/test-00000-of-00001.parquet"
+      ],
+      "expected_population": 100,
+      "version": "Salesforce/LiveResearchBenchFull@b98de2fcb81ab0726f2d2d441922a201c28d3751, test100 grouped by qid, official no-placeholder dates",
+      "protocol": "LRB presentation, consistency, citation, coverage, depth; checklist/reference report protocol",
+      "answer_prompt": "Write the complete research report requested, supported with source citations. Follow the language and formatting requested in the question."
+    },
+    "mind2web2": {
+      "files": [
+        "/root/autodl-tmp/Glasseek/data/evaluation/suite5pct-v1/sources/Mind2Web-2/dev_set.csv",
+        "/root/autodl-tmp/Glasseek/data/evaluation/suite5pct-v1/sources/Mind2Web-2/test_set.csv"
+      ],
+      "expected_population": 130,
+      "version": "osunlp/Mind2Web-2@54f5b2546c30b86812d9564f4800c0c6f77deb45, public dev10 + test120; evaluator scripts2025_10_23",
+      "protocol": "Mind2Web2 agent-as-judge correctness and attribution; native task scripts",
+      "answer_prompt": "Answer all parts of the request. Provide source URLs for factual claims so that correctness and attribution can be checked."
+    },
+    "widesearch": {
+      "files": [
+        "/root/autodl-tmp/Glasseek/data/evaluation/suite5pct-v1/sources/WideSearch/widesearch.jsonl"
+      ],
+      "expected_population": 200,
+      "version": "ByteDance-Seed/WideSearch@6531a7e5b497d44c8912407e0cb3dc95bd98cc09, full200 EN100+ZH100",
+      "protocol": "WideSearch native entity/row/item precision, recall and F1; original per-column evaluation pipeline",
+      "answer_prompt": "Follow the exact table format, columns, and completeness requirements in the question. Return the complete table."
+    }
+  },
+  "reference_date": "2026-11-08",
+  "per_benchmark": 8,
+  "include_benchmarks": [
+    "browsecomp",
+    "browsecomp_plus",
+    "gaia",
+    "hle",
+    "drbench",
+    "liveresearchbench",
+    "widesearch"
+  ],
+  "exclude_suites": [
+    "/root/autodl-tmp/Glasseek/data/evaluation/suite5pct-v1/smoke-2-seed42"
+  ]
+}

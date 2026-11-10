@@ -63,10 +63,35 @@ def object_from_text(value):
     return {}
 
 
+def batch_search_view(name, obj, render):
+    parts = obj.get("results")
+    if not isinstance(parts, list) or not parts or not all(isinstance(p, dict) and isinstance(p.get("query"), str) and isinstance(p.get("result"), dict) for p in parts):
+        return None
+    queries = []
+    for part in parts:
+        _, item = render(name, {"query": part["query"]}, json.dumps(part["result"]))
+        for query in item["queries"]:
+            failed = part["result"].get("success") is False or bool(part["result"].get("error"))
+            query["status"] = "error" if failed else "success"
+            if failed:
+                query["error"] = str(part["result"].get("error") or "Search failed")
+                query["count"] = None
+            queries.append(query)
+    errors = [q.get("error", "") for q in queries if q["status"] == "error"]
+    return "search", {"name": name, "kind": "search", "goal": "",
+        "status": "partial" if errors and len(errors) < len(queries) else "error" if errors else "success",
+        "error": "; ".join(errors), "queries": queries, "queryCount": len(queries),
+        "issuedQueryCount": len(queries), "resultCount": sum(len(q["results"]) for q in queries)}
+
+
 def tool_view(name: str, args: dict, output: str):
     obj = object_from_text(output)
     data = obj.get("data", {})
     if name in ("web_search", "search_server"):
+        from quest_viewer_adapter import batch_search_view
+        batch = batch_search_view(name, obj, tool_view)
+        if batch is not None:
+            return batch
         found = data.get("web", []) if isinstance(data, dict) else []
         results = []
         for item in found if isinstance(found, list) else []:
@@ -374,7 +399,8 @@ def find_profile(run, case, session, result, profiles_dir):
 
 
 def build_package():
-    rows = [json.loads(line) for line in (RUNTIME / f"{DATASET}.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+    data_path = RUNTIME / f"{DATASET}.jsonl"
+    rows = [json.loads(line) for line in data_path.read_text(encoding="utf-8").splitlines() if line.strip()]
     sessions = RUNTIME / "hermes/sessions" / RUN / DATASET
     output = ROOT / "output/preds" / RUN / DATASET
     results = {}
@@ -446,7 +472,7 @@ def build_package():
             eval_status = "judging"
         elapsed = duration(session)
         answer = str((result or {}).get("model_response") or "")
-        stats = {"steps": len(steps), "searchCalls": counts['search'], "readCalls": counts['read'], "computeCalls": counts['compute'], "searchQueries": counts['search'], "resultsScanned": sum(s['tool'].get('resultCount', 0) for s in steps if s['tool']), "pagesRead": sum(s['tool'].get('pageCount', 0) for s in steps if s['tool']), "uniqueSources": 0, "uniqueDomains": 0, "averageStepSeconds": None, "longestStepSeconds": None}
+        stats = {"steps": len(steps), "searchCalls": counts['search'], "readCalls": counts['read'], "computeCalls": counts['compute'], "searchQueries": sum((s.get("tool") or {}).get("queryCount", 0) for s in steps), "resultsScanned": sum(s['tool'].get('resultCount', 0) for s in steps if s['tool']), "pagesRead": sum(s['tool'].get('pageCount', 0) for s in steps if s['tool']), "uniqueSources": 0, "uniqueDomains": 0, "averageStepSeconds": None, "longestStepSeconds": None}
         cases.append({"id": case, "index": index, "field": "BrowseComp", "fieldZh": "BrowseComp", "topic": case, "topicZh": case, "question": row['question'], "answer": answer, "answerNote": "运行中" if running else "时长为会话记录窗口", "judge": "DeepSeek Flash · BrowseComp official", "correct": correct, "evaluationStatus": eval_status, "evaluationError": error_text, "judgeStatus": judge.get("status"), "inProgress": running, "interrupted": eval_status == "interrupted", "rounds": rounds, "durationSeconds": elapsed, "durationText": f"{int(elapsed // 60)}m {int(elapsed % 60)}s", "model": MODEL, "risk": {"level": "unknown", "label": "未审计"}, "riskKey": "not_audited", "stats": stats, "sessionStats": session_stats, "timing": session.get("_viewer_timing", {}), "timingAvailable": timing_available, "domains": [], "steps": steps, "finalAnswer": answer, "keyIndices": [], "sources": []})
     run = {"name": LABEL, "model": MODEL, "benchmark": "BrowseComp · Quest 128", "date": datetime.now().date().isoformat(), "dateShort": datetime.now().date().isoformat(), "totalCases": len(cases), "requestedCases": len(rows), "judgePassed": sum(c['correct'] is True for c in cases), "judgeScored": sum(c['correct'] is not None for c in cases), "rounds": sum(c['rounds'] for c in cases), "toolCalls": sum(sum(c['stats'][k] for k in ('searchCalls','readCalls','computeCalls')) for c in cases), "pagesRead": sum(c['stats']['pagesRead'] for c in cases), "searchQueries": sum(c['stats']['searchQueries'] for c in cases), "searchCalls": sum(c['stats']['searchCalls'] for c in cases), "inProgress": any(c['inProgress'] for c in cases), "wiki": "Quest 27B 选择性难题子集；DeepSeek Flash 判分；未审计的轨迹不标记为安全。"}
     counts = Counter(c['evaluationStatus'] for c in cases)
@@ -456,7 +482,8 @@ def build_package():
     run['userTerminatedCount'] = counts['user_terminated']
     run['unsuccessfulCount'] = counts['incorrect'] + counts['user_terminated']
     run['wiki'] = f"BrowseComp 34；已评分 {run['judgeScored']}，通过 {run['judgePassed']}；异常 {run['errorCount']}；达到轮数上限 {run['roundLimitCount']}。"
-    return {"generatedAt": datetime.now().astimezone().isoformat(), "run": run, "cases": cases}
+    from benchmark_scores import enrich_package
+    return enrich_package({"generatedAt": datetime.now().astimezone().isoformat(), "run": run, "cases": cases}, output, data_path, DATASET, RUN)
 
 
 def main():

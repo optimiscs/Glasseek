@@ -33,3 +33,20 @@ class AnswerPromptTests(unittest.TestCase):
                 load_answer_prompt('set-two', p)
 
 if __name__ == '__main__': unittest.main()
+
+
+def test_hle_uses_original_question_without_browsecomp_guidance():
+    item = DatasetItem('row', 'Compute the integral.', 'PRIVATE', 'Math', 1)
+    assert build_query(RunSpec('row','row__r1',1,item),dataset='suite_hle') == item.question
+
+
+def test_hle_routes_official_system_prompt():
+    import ast
+    from scripts.evaluation_suite import run
+    args=run.build_parser().parse_args([])
+    cmd,_=run.infer_command(args,'hle',108)
+    actual=Path(cmd[cmd.index('--custom-system-prompt-file')+1]).read_text().strip()
+    tree=ast.parse((run.ROOT/'data/evaluation/suite5pct-v1/evaluators/hle/hle_eval/run_model_predictions.py').read_text())
+    expected=next(ast.literal_eval(n.value) for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='SYSTEM_PROMPT' for t in n.targets))
+    assert actual==expected
+    assert 'Exact Answer:' not in actual

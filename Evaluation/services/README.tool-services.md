@@ -200,7 +200,7 @@ before starting.
 
 ### Four URL mode experiments
 
-`scripts/trajectory_benchmark/run_url_modes_live.py` starts an incremental
+The archived `archieve/scripts/trajectory_benchmark/run_url_modes_live.py` recorded an incremental
 DeepSeek judge for each mode by default, in addition to automatic live viewing.
 Use `--no-judge` only for an intentionally unscored experiment. Scores are written
 to each run's `judge_official/` and appear in the viewer. The launcher waits for
@@ -238,7 +238,7 @@ full CLM version/state restoration across a fresh process is not implemented.
 SFT `--context-manager clm` requires canonical trajectories containing
 `context_edit` tool calls. It does not synthesize training labels from ordinary
 summaries. The viewer shows context edits and their receipts as ordinary tool
-steps. Pilot reports are in `reports/clm-pilot-20261108/`; the four-prefix
+steps. Pilot reports are in `archieve/reports/clm-pilot-20261108/`; the four-prefix
 comparison measures note generation, not end-to-end answer quality or an RL run.
 
 ### Official CLM: per-task local paths
@@ -322,4 +322,41 @@ Old transcripts without tool definitions retain an unknown tool count.
 The terminal-only legacy importer backs up predictions and verifies unchanged
 scoring inputs before rebinding cached judgment fingerprints to metadata-only
 changes. It does not invent missing event times or import unfinished attempts.
-Reports and backfill coverage: `reports/clm-hermes-schema-20261108/`.
+Reports and backfill coverage: `archieve/reports/clm-hermes-schema-20261108/`.
+
+
+### Isolated scientific computation
+
+The evaluation service sets `HERMES_REMOTE_PURE_COMPUTE=Lab3090`. This route
+uses `tools/remote_pure_compute.py` and the trusted
+`tools/scientific_container_worker.py` supervisor. It never falls back to the
+host interpreter or the unrestricted terminal backend. The legacy local
+filesystem-denied launcher is not used by this evaluation route.
+
+`Evaluation_backend/tools/scientific_runtime.json` pins the Docker image ID,
+Python 3.8 scientific distributions, wheel hashes and resource budgets. Build
+with `scientific_runtime.Dockerfile` using a directory containing that manifest
+and the exact wheels. Download Python 3.8 conditional dependencies explicitly
+when provisioning from a newer Python. Build offline (`docker build
+--network=none`), record the resulting immutable image ID, then run the opt-in
+integration tests before updating cleaning artifacts. No package installation
+or image pulling occurs during dataset execution.
+
+Each call has 2 CPU equivalents, 2 GiB memory with no additional swap, 64 tasks,
+a 128 MiB private `/tmp`, 16 MiB shared memory, an 8 MiB per-file limit and a
+200 KB combined output budget. At most four jobs from this runtime run on the
+host at once. The root is read-only, network is disabled, no host volumes or
+Docker sockets are mounted, capabilities are dropped, and no-new-privileges is
+set. Code runs as UID 65534. BLAS defaults to two threads; cgroups enforce the
+actual resource bounds. Private temporary files and all process state disappear
+when the supervisor removes the container.
+
+The remote supervisor enforces the requested deadline (capped at 300 seconds),
+terminates output floods, distinguishes OOM from execution errors and confirms
+container removal. Transport cancellation also requests removal by an unguessable
+job ID. A missing receipt or unverified cleanup is an error, never a pass.
+
+Run `GLASSEEK_TEST_REMOTE_SANDBOX=1` with `tests/test_remote_pure_compute.py` to
+validate the actual scientific stack, cgroup limits, threads, memory/output
+limits, network/host-file isolation and fresh temporary directories. Ordinary
+unit tests alone do not certify remote deployment.
