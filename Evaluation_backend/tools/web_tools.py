@@ -1184,7 +1184,7 @@ async def web_extract_tool(
 
         # Optional Quest retrieval returns selected evidence directly, avoiding
         # the legacy long-page LLM summarizer and its separate safety-net retry.
-        if os.getenv("GLASSEEK_QUEST_PAGE_RETRIEVAL") == "1":
+        if os.getenv("GLASSEEK_QUEST_PAGE_RETRIEVAL") == "1" or os.getenv("GLASSEEK_RESEARCH_PROTOCOL") == "arex-native":
             from tools.quest_page_retrieval import select_pages
             selected = runtime_results(normalized_urls, await select_pages(results, goal=goal))
             trimmed = [{"url": r.get("url", ""), "title": r.get("title", ""),

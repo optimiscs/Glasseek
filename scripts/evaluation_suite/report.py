@@ -43,11 +43,32 @@ def case_usage(row):
             web.update(load(p,{}) or {})
     for key in ('web_search','web_extract'):
         tools[key]=web[key] if web else (row.get('tool_calls') or {}).get(key,tools[key])
+    # Research reviews deliberately bypass the main conversation transcript.
+    # Count their measured usage separately, then include it once in totals.
+    review_records = []
+    if work:
+        paths = set(work.parent.glob('attempt_*/research-result-a*.json'))
+        paths.update(work.glob('research-result-a*.json'))
+        for path in sorted(paths):
+            review_records.extend((load(path, {}) or {}).get('reviews', []))
+    if not review_records:
+        review_records = (row.get('research_submission') or {}).get('reviews', [])
+    review_usage_missing = 0
+    for event in review_records:
+        total['model_calls'] += 1
+        usage = event.get('usage')
+        if not isinstance(usage, dict):
+            review_usage_missing += 1
+            continue
+        total['input_tokens'] += usage.get('prompt_tokens') or 0
+        total['output_tokens'] += usage.get('completion_tokens') or 0
+        total['cached_input_tokens'] += (usage.get('prompt_tokens_details') or {}).get('cached_tokens') or 0
     measured={k:total[k] for k in ['input_tokens','output_tokens','cached_input_tokens','model_calls','context_edits','context_edits_substantial']}
     if not seen:measured.update(context_edits=None,context_edits_substantial=None)
     return {**measured,
-        'usage_status':'complete' if seen and not missing else 'partial','missing_profiles':missing,'tool_calls':dict(tools),
-        'token_scope':'sum of native session counters across attempts; input includes cache once; output includes reasoning and final'}
+        'usage_status':'complete' if seen and not missing and not review_usage_missing else 'partial','missing_profiles':missing,'tool_calls':dict(tools),
+        'research_review_calls': len(review_records), 'research_review_usage_missing': review_usage_missing,
+        'token_scope':'native session counters plus measured research review usage across attempts; input includes cache once; output includes reasoning and final'}
 
 
 def native_metrics(folder,name):

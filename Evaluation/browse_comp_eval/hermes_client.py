@@ -160,6 +160,9 @@ class HermesClient:
         # The reference answer is host-only and is appended after the protocol
         # boundary so it can never be uploaded to a sandbox.
         result["answer"] = spec.item.answer
+        if os.environ.get('GLASSEEK_RESEARCH_PROTOCOL') == 'arex-native':
+            sidecar = workspace_dir / f'research-result-a{attempt}.json'
+            result['research_submission'] = json.loads(sidecar.read_text()) if sidecar.exists() else {}
         return result
 
     def cancel_active(self, reason: str) -> None:
@@ -266,6 +269,12 @@ class HermesClient:
             browser_cdp_url=browser_cdp_url,
             mock_search_server=mock_search_server,
         )
+        research_result = workspace_dir / f'research-result-a{attempt}.json'
+        if env.get('GLASSEEK_RESEARCH_PROTOCOL') == 'arex-native':
+            env['GLASSEEK_RESEARCH_RESULT'] = str(research_result.resolve())
+            env['GLASSEEK_RESEARCH_DATASET'] = self.config.dataset
+            if not resume_session:
+                research_result.unlink(missing_ok=True)
         if resume_session:
             env['GLASSEEK_RESUME_PIN_SESSION'] = '1'
 
@@ -421,6 +430,20 @@ class HermesClient:
             error = final_assistant_error or "empty final assistant response"
             if official_payload:
                 failure_type = official_payload.get('stop_reason') or 'no_final_answer'
+        research_submission = None
+        if env.get('GLASSEEK_RESEARCH_PROTOCOL') == 'arex-native':
+            research_submission = json.loads(research_result.read_text()) if research_result.exists() else {}
+            if research_submission.get('status') != 'submitted':
+                status = 'failed'
+                failure_type = 'research_' + research_submission.get('status', 'incomplete')
+                error = research_submission.get('reason', 'No validated native finish submission')
+                model_response = ''
+                final_assistant_error = error
+            elif model_response != research_submission.get('rendered_answer'):
+                status = 'failed'
+                failure_type = 'research_final_mismatch'
+                error = final_assistant_error = 'Persisted final answer differs from accepted finish'
+                model_response = ''
         mcp_registration_error = ""
         if "browsecomp-plus-bm25" in self.config.toolsets:
             mcp_registration_error = browsecomp_plus_mcp_registration_error(
@@ -1273,6 +1296,9 @@ class MultiEndpointHermesClient:
 
 
 def build_query(spec: RunSpec, dataset: str = "") -> str:
+    if os.environ.get('GLASSEEK_RESEARCH_PROTOCOL') == 'arex-native':
+        from glasseek_shared.research.prompts import user_prompt
+        return user_prompt(dataset, spec.item.question)
     if dataset == "suite_hle":
         return spec.item.question
     _, answer_prompt = load_answer_prompt(dataset)

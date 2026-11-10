@@ -1,0 +1,17 @@
+AREX-2 research prompt adaptation
+Upstream: https://github.com/VectorSpaceLab/AREX-2
+Pinned source: f5b7bd02a30d017f4a0bb3589b68c972d7774715
+Upstream license: Apache License 2.0 (LICENSE-AREX-2).
+
+Adapted strategies from:
+- data/research/BrowseComp/prompt.py
+- data/research/GAIA-2023-validation-text-103/prompt.py
+- data/research/DeepSearch-QA/prompt.py
+- evaluation/research/hle_vendor/prompts_no_subagent.py
+
+Glasseek changes: native Hermes schemas; web_search/web_extract; no Scholar,
+manual context update, XML or think-boundary instructions; original-passage
+retrieval instead of summarization; bounded execution/review; no shortest-path
+shortcut; complete report/table policies for datasets without an upstream bundle.
+The benchmark judges remain Glasseek's separately pinned native evaluators.
+This adaptation is not a claim to reproduce AREX-2's published scores.

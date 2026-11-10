@@ -579,7 +579,23 @@ def run_conversation(
         )
 
     while (api_call_count < agent.max_iterations and agent.iteration_budget.remaining > 0) or agent._budget_grace_call:
+        # Capture source identity before automatic compression can fold a tool
+        # observation away. Only real tool messages register source URLs.
+        from glasseek_shared.research.protocol import enabled as research_enabled
+        if research_enabled():
+            from glasseek_shared.research.runtime import observe
+            observe(agent, messages)
         from agent.glasseek_tool_budget import exhausted as tool_budget_exhausted
+        if research_enabled() and (tool_budget_exhausted() or api_call_count >= agent.max_iterations):
+            from glasseek_shared.research.runtime import state
+            from glasseek_shared.research.protocol import write_record
+            record = state(agent)
+            record.update(status='incomplete', reason='research execution budget exhausted')
+            write_record(record)
+            failed = True
+            final_response = None
+            _turn_exit_reason = 'research_budget_exhausted'
+            break
         if tool_budget_exhausted():
             from agent.chat_completion_helpers import handle_max_iterations
             final_response = handle_max_iterations(agent, messages, api_call_count,
@@ -3815,6 +3831,24 @@ def run_conversation(
             elif hasattr(agent, "_codex_incomplete_retries"):
                 agent._codex_incomplete_retries = 0
             
+            # Opt-in native research protocol. Intercept before name repair or
+            # tool execution so invalid/mixed submissions have no side effects.
+            from glasseek_shared.research.protocol import enabled as research_enabled
+            if research_enabled():
+                from glasseek_shared.research.runtime import handle_response
+                action, submitted, extra_calls = handle_response(
+                    agent, assistant_message, messages, api_messages, api_call_count)
+                api_call_count += extra_calls
+                if action != 'execute':
+                    agent._session_messages = messages
+                    agent._persist_session(messages, conversation_history)
+                    if action == 'continue':
+                        continue
+                    final_response = submitted
+                    failed = action == 'failed'
+                    _turn_exit_reason = 'research_' + action
+                    break
+
             # Check for tool calls
             if assistant_message.tool_calls:
                 if not agent.quiet_mode:

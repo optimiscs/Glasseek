@@ -554,6 +554,13 @@ def interruptible_api_call(agent, api_kwargs: dict):
 
 
 def build_api_kwargs(agent, api_messages: list) -> dict:
+    from glasseek_shared.research.protocol import enabled, native_kwargs
+    if enabled() and agent.api_mode != "chat_completions":
+        raise ValueError("AREX native requires the Hermes chat_completions transport")
+    return native_kwargs(_build_api_kwargs(agent, api_messages))
+
+
+def _build_api_kwargs(agent, api_messages: list) -> dict:
     """Build the keyword arguments dict for the active API mode."""
     tools_for_api = agent.tools
 
