@@ -88,26 +88,105 @@ try:
  Path("/tmp/test-write").write_text("x")
  print("WRITE_ALLOWED")
 except OSError: print("WRITE_BLOCKED")
+try:
+ Path("/usr/test-write").write_text("x")
+ print("ROOT_WRITE_ALLOWED")
+except OSError: print("ROOT_WRITE_BLOCKED")
 import socket
 s=socket.socket();s.settimeout(2)
 try:
  s.connect(("1.1.1.1",443));print("NETWORK_ALLOWED")
 except OSError: print("NETWORK_BLOCKED")
+try:
+ socket.socket(socket.AF_VSOCK,socket.SOCK_STREAM);print("VSOCK_ALLOWED")
+except OSError: print("VSOCK_BLOCKED")
 '''
             result = json.loads(execute(code, 'Lab3090', 15))
             self.assertEqual(result['status'], 'success', result)
-            self.assertEqual(result['output'].splitlines(), ['CALC 323', 'HOST_BLOCKED', 'WRITE_BLOCKED', 'NETWORK_BLOCKED'])
+            self.assertEqual(result['output'].splitlines(), ['CALC 323', 'HOST_BLOCKED', 'WRITE_ALLOWED', 'ROOT_WRITE_BLOCKED', 'NETWORK_BLOCKED', 'VSOCK_BLOCKED'])
+            self.assertTrue(result['cleanup_verified'])
         finally:
             subprocess.run(['ssh', '-o', 'BatchMode=yes', 'Lab3090', 'rm -rf -- ' + directory], timeout=15, check=True)
 
     def test_timeout_parallel_and_process_isolation(self):
         timeout = json.loads(execute('import time; time.sleep(10)', 'Lab3090', 1))
         self.assertEqual(timeout['status'], 'timeout', timeout)
-        code = 'import os\ntry: os.fork(); print("FORK_ALLOWED")\nexcept OSError: print("FORK_BLOCKED")'
-        self.assertEqual(json.loads(execute(code, 'Lab3090', 15))['output'].strip(), 'FORK_BLOCKED')
+        code = '''import threading
+event=threading.Event()
+threads=[]
+try:
+ for i in range(100):
+  t=threading.Thread(target=event.wait,daemon=True);t.start();threads.append(t)
+except RuntimeError: pass
+assert 2 <= len(threads) < 64, len(threads)
+event.set()
+for t in threads: t.join()
+print("THREADS_BOUNDED")
+'''
+        self.assertEqual(json.loads(execute(code, 'Lab3090', 15))['output'].strip(), 'THREADS_BOUNDED')
         with ThreadPoolExecutor(max_workers=2) as pool:
             results = list(pool.map(lambda n: json.loads(execute(f'print({n}*7)', 'Lab3090', 15)), [2, 3]))
         self.assertEqual([(x['status'], x['output'].strip()) for x in results], [('success', '14'), ('success', '21')])
+
+    def test_scientific_stack_and_actual_cgroup_limits(self):
+        code = '''import json, pathlib, io, concurrent.futures
+import numpy as np, pandas as pd, scipy, sympy, matplotlib
+from scipy.optimize import minimize_scalar
+from scipy.integrate import quad
+import matplotlib.pyplot as plt
+assert np.allclose(np.linalg.solve([[2.,0.],[0.,4.]],[4.,8.]), [2,2])
+assert abs(quad(lambda x:x*x,0,1)[0]-1/3)<1e-8
+assert abs(minimize_scalar(lambda x:(x-3)**2).x-3)<1e-6
+assert pd.read_csv(io.StringIO("a,b\\n1,2\\n"))["b"].sum()==2
+x=sympy.Symbol('x');assert sympy.expand((x+1)**2)==x*x+2*x+1
+with concurrent.futures.ThreadPoolExecutor(2) as pool:
+ assert list(pool.map(lambda n: float(np.ones((8,8)).sum())+n,[1,2]))==[65.,66.]
+plt.plot([1,2]);plt.savefig('/tmp/plot.png');assert pathlib.Path('/tmp/plot.png').stat().st_size>0
+root=pathlib.Path('/sys/fs/cgroup')
+def read(*names):
+ for n in names:
+  if (root/n).exists():return (root/n).read_text().strip()
+ raise AssertionError(names)
+assert read('pids.max','pids/pids.max')=='64'
+assert read('memory.max','memory/memory.limit_in_bytes')=='2147483648'
+if (root/'cpu.max').exists():
+ q,p=map(int,read('cpu.max').split());assert q/p==2
+else:
+ assert int(read('cpu/cpu.cfs_quota_us','cpu,cpuacct/cpu.cfs_quota_us'))/int(read('cpu/cpu.cfs_period_us','cpu,cpuacct/cpu.cfs_period_us'))==2
+print('SCIENCE_AND_LIMITS_OK')
+'''
+        result=json.loads(execute(code,'Lab3090',30))
+        self.assertEqual(result['status'],'success',result)
+        self.assertIn('SCIENCE_AND_LIMITS_OK',result['output'])
+        self.assertTrue(result['cleanup_verified'])
+
+    def test_output_memory_limits_and_fresh_tmp(self):
+        output=json.loads(execute('while True: print("x"*8192)','Lab3090',15))
+        self.assertEqual(output['status'],'output_limit',output)
+        self.assertTrue(output['cleanup_verified'])
+        memory=json.loads(execute('x=bytearray(3*1024**3)','Lab3090',30))
+        self.assertEqual(memory['status'],'memory_limit',memory)
+        self.assertTrue(memory['cleanup_verified'])
+        first=json.loads(execute('open("/tmp/glasseek-test-marker","w").write("private")','Lab3090',15))
+        self.assertEqual(first['status'],'success',first)
+        second=json.loads(execute('import os; print(os.path.exists("/tmp/glasseek-test-marker"))','Lab3090',15))
+        self.assertEqual(second['output'].strip(),'False',second)
+
+    def test_private_tmp_quota_is_enforced(self):
+        code = '''import errno
+chunk=b'x'*(1024*1024)
+try:
+ for i in range(200):
+  with open('/tmp/quota-'+str(i),'wb') as f: f.write(chunk)
+except OSError as exc:
+ assert exc.errno==errno.ENOSPC, exc
+ print('TMP_QUOTA_ENFORCED')
+else: raise AssertionError('tmp quota not enforced')
+'''
+        result=json.loads(execute(code,'Lab3090',20))
+        self.assertEqual(result['status'],'success',result)
+        self.assertEqual(result['output'].strip(),'TMP_QUOTA_ENFORCED')
+        self.assertTrue(result['cleanup_verified'])
 
 
 if __name__ == '__main__':

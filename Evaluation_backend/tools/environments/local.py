@@ -7,6 +7,7 @@ import re
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -562,6 +563,9 @@ class LocalEnvironment(BaseEnvironment):
                 cmd_string = _prepend_shell_init(cmd_string, init_files)
         args = [bash, "-l", "-c", cmd_string] if login else [bash, "-c", cmd_string]
         run_env = _make_run_env(self.env)
+        if os.environ.get('GLASSEEK_FIXED_CORPUS_CONFIG'):
+            wrapper=Path(__file__).resolve().parents[3]/'Shared/glasseek_shared/fixed_corpus_sandbox.py'
+            args=[sys.executable,str(wrapper),*args]
 
         # Recover when the cwd has been deleted out from under us — usually by
         # a previous tool call that ran ``rm -rf`` on its own working dir

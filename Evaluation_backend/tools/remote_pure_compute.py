@@ -1,99 +1,66 @@
-"""Run the native pure-compute namespace sandbox on an explicitly trusted SSH host."""
-from __future__ import annotations
+"""Pinned scientific containers on an explicitly trusted SSH host.
 
+Every call has its own cgroup, private tmpfs, no network or host bind mounts.
+The SSH-side supervisor owns deadlines, output limits and container cleanup.
+"""
 import base64
+import hashlib
 import json
-import os
+import shlex
 import subprocess
-import threading
 import time
+import uuid
 from pathlib import Path
 
-_CAP = 50_000
 _MAX_CODE = 1_000_000
+HERE = Path(__file__).resolve().parent
 
 
 def execute(code: str, host: str, timeout: int = 300) -> str:
-    """Fail closed: SSH transport only; execute through the native isolation launcher."""
     started = time.monotonic()
-    if host != 'Lab3090' or not code.strip() or len(code.encode('utf-8')) > _MAX_CODE:
+    if host != 'Lab3090' or not code.strip() or len(code.encode()) > _MAX_CODE:
         return json.dumps({'status': 'error', 'error': 'invalid remote sandbox configuration or code'})
-    timeout = max(1, min(int(timeout), 300))
-    launcher = Path(__file__).with_name('execute_code_fs_sandbox.py').read_bytes()
-    encoded_launcher = base64.b64encode(launcher).decode('ascii')
-    encoded_code = base64.b64encode(code.encode('utf-8')).decode('ascii')
-    # Values contain base64 only. The program is never interpreted by a shell.
-    payload = f'HELPER={encoded_launcher}\nCODE={encoded_code}\nLIMIT={timeout}\n' + r'''set -eu
-umask 077
-D=$(mktemp -d /tmp/glasseek-hermes-sandbox.XXXXXXXX)
-trap 'rm -rf -- "$D"' EXIT
-printf %s "$HELPER" | base64 -d > "$D/helper.py"
-printf %s "$CODE" | base64 -d > "$D/script.py"
-printf %s '' > "$D/hermes_tools.py"
-ulimit -v 2097152
-ulimit -t 120
-ulimit -f 8192
-ulimit -n 128
-env -i PATH=/usr/bin:/bin HERMES_SANDBOX_NO_FORK=1 timeout --signal=TERM --kill-after=3 "$LIMIT" \
-  unshare --user --map-root-user --mount --pid --ipc --uts --net \
-  --fork --kill-child --propagation private /usr/bin/python3 "$D/helper.py" --staging "$D"
-'''
-    cmd = ['/usr/bin/ssh', '-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8',
-           '-o', 'StrictHostKeyChecking=yes', host, 'bash -s']
-    chunks = {'out': bytearray(), 'err': bytearray()}
-    totals = {'out': 0, 'err': 0}
+    job_id = 'glasseek-compute-' + uuid.uuid4().hex
+    ssh = ['/usr/bin/ssh', '-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8',
+           '-o', 'StrictHostKeyChecking=yes', host]
+    process = None
     try:
-        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-        def drain(pipe, key):
-            try:
-                while True:
-                    data = pipe.read(8192)
-                    if not data:
-                        break
-                    totals[key] += len(data)
-                    chunks[key].extend(data[:max(0, _CAP - len(chunks[key]))])
-            finally:
-                pipe.close()
-
-        readers = [threading.Thread(target=drain, args=(proc.stdout, 'out'), daemon=True),
-                   threading.Thread(target=drain, args=(proc.stderr, 'err'), daemon=True)]
-        for thread in readers:
-            thread.start()
-        write_errors = []
-
-        def send():
-            try:
-                proc.stdin.write(payload.encode('utf-8'))
-            except (BrokenPipeError, OSError) as exc:
-                write_errors.append(exc)
-            finally:
-                proc.stdin.close()
-
-        writer = threading.Thread(target=send, daemon=True)
-        writer.start()
-        try:
-            rc = proc.wait(timeout=timeout + 20)
-        except BaseException:
-            proc.kill()
-            proc.wait()
-            raise
-        writer.join(timeout=3)
-        if write_errors:
-            raise RuntimeError('remote sandbox transport closed during input')
-        for thread in readers:
-            thread.join(timeout=3)
+        timeout = max(1, min(int(timeout), 300))
+        manifest_bytes = (HERE / 'scientific_runtime.json').read_bytes()
+        manifest = json.loads(manifest_bytes)
+        worker = (HERE / 'scientific_container_worker.py').read_bytes()
+        request = {'job_id': job_id, 'image_id': manifest['image_id'],
+                   'code': code, 'timeout': timeout, 'limits': manifest['limits']}
+        launcher = 'import base64;exec(compile(base64.b64decode(' + repr(base64.b64encode(worker).decode()) + "),'<glasseek-supervisor>','exec'))"
+        command = '/usr/bin/python3 -c ' + shlex.quote(launcher)
+        process = subprocess.Popen([*ssh, command], stdin=subprocess.PIPE,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, error = process.communicate(json.dumps(request).encode(), timeout=timeout+90)
+        if process.returncode:
+            raise RuntimeError('remote supervisor failed: '+error.decode(errors='replace')[:1000])
+        result = json.loads(output)
+        if result.get('job_id') != job_id or result.get('image_id') != request['image_id']:
+            raise RuntimeError('Remote receipt identity mismatch')
+        if not result.get('cleanup_verified'):
+            raise RuntimeError('Remote cleanup was not verified')
+        result['runtime_manifest_sha256'] = hashlib.sha256(manifest_bytes).hexdigest()
+        result['supervisor_sha256'] = hashlib.sha256(worker).hexdigest()
         from agent.redact import redact_sensitive_text
-        output = redact_sensitive_text(chunks['out'].decode('utf-8', errors='replace'))
-        error = redact_sensitive_text(chunks['err'].decode('utf-8', errors='replace'))
-        if totals['out'] > _CAP:
-            output += '\n[output truncated]'
-        result = {'status': 'success' if rc == 0 else ('timeout' if rc == 124 else 'error'),
-                  'output': output, 'tool_calls_made': 0,
-                  'duration_seconds': round(time.monotonic() - started, 2)}
-        if rc:
-            result['error'] = f'remote sandbox exited {rc}: {error[:1000]}'
+        for key in ('output', 'error'):
+            if key in result:
+                result[key] = redact_sensitive_text(result[key])
         return json.dumps(result, ensure_ascii=False)
-    except (OSError, RuntimeError, ValueError, subprocess.TimeoutExpired) as exc:
-        return json.dumps({'status': 'error', 'error': str(exc), 'tool_calls_made': 0,
-                           'duration_seconds': round(time.monotonic() - started, 2)}, ensure_ascii=False)
+    except (OSError, RuntimeError, ValueError, KeyError, subprocess.TimeoutExpired) as exc:
+        return json.dumps({'status': 'error', 'error': str(exc), 'job_id': job_id,
+                           'tool_calls_made': 0, 'duration_seconds': round(time.monotonic()-started, 2)})
+    finally:
+        # Also handle cancellation, broken SSH and malformed/missing receipts.
+        # The remote supervisor independently retains its own deadline.
+        if process is not None and process.poll() is None:
+            process.kill()
+            process.wait()
+            try:
+                subprocess.run([*ssh, 'docker rm -f -v '+job_id],
+                               capture_output=True, timeout=20)
+            except (OSError, subprocess.TimeoutExpired):
+                pass
