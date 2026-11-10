@@ -50,7 +50,17 @@ def finalize_turn(
     """
     from agent.conversation_loop import logger
 
-    if final_response is None and (
+    from glasseek_shared.research.protocol import enabled as research_enabled, write_record
+    if research_enabled():
+        from glasseek_shared.research.runtime import state
+        record = state(agent)
+        if record.get('status') != 'submitted':
+            failed = True
+            final_response = None
+            record.setdefault('reason', _turn_exit_reason or 'research ended without a valid finish')
+        write_record(record)
+
+    if not research_enabled() and final_response is None and (
         api_call_count >= agent.max_iterations
         or agent.iteration_budget.remaining <= 0
     ):
@@ -127,6 +137,9 @@ def finalize_turn(
         and api_call_count < agent.max_iterations
         and not failed
     )
+
+    if research_enabled():
+        completed = record.get('status') == 'submitted' and not failed and not interrupted
 
     # Save trajectory if enabled.  ``user_message`` may be a multimodal
     # list of parts; the trajectory format wants a plain string.

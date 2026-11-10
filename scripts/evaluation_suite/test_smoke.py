@@ -81,3 +81,18 @@ class SmokeTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+
+def test_review_usage_is_added_once_to_native_session_counters(tmp_path, monkeypatch):
+    monkeypatch.setenv('HERMES_HOME',str(tmp_path))
+    dbpath=tmp_path/'profiles/p/state.db';dbpath.parent.mkdir(parents=True)
+    with sqlite3.connect(dbpath) as db:
+        db.execute('CREATE TABLE sessions(id,input_tokens,output_tokens,cache_read_tokens,cache_write_tokens,api_call_count)')
+        db.execute('INSERT INTO sessions VALUES ("s",100,50,300,0,1)')
+        db.execute('CREATE TABLE messages(role,content,tool_calls,inherited_from_previous_session)')
+    workspace=tmp_path/'work/attempt_1';workspace.mkdir(parents=True)
+    record={'reviews':[{'usage':{'prompt_tokens':200,'completion_tokens':20,'prompt_tokens_details':{'cached_tokens':100}}}]}
+    dump(workspace/'research-result-a1.json',record)
+    usage=case_usage({'profile':'p','workspace_dir':str(workspace),'research_submission':record})
+    assert usage['input_tokens']==600 and usage['cached_input_tokens']==400
+    assert usage['output_tokens']==70 and usage['model_calls']==2 and usage['research_review_calls']==1

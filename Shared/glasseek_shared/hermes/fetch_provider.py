@@ -90,6 +90,8 @@ def _read_fetch_server_cfg() -> Dict[str, Any]:
         or str(_cfg_value(root_cfg, "base_url") or "").strip()
     )
     extract_mode = str(_cfg_value(root_cfg, "extract_mode") or "text").strip().lower()
+    if os.environ.get('GLASSEEK_RESEARCH_PROTOCOL') == 'arex-native':
+        extract_mode = 'text'  # markdown Reader mode may invoke a server-side LLM
     if extract_mode not in {"text", "markdown"}:
         extract_mode = "text"
 

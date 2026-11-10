@@ -41,6 +41,9 @@ class BrowseCompRunner:
     def __init__(self, client: HermesClient, config: RunnerConfig):
         self.client = client
         self.config = config
+        if os.environ.get('GLASSEEK_RESEARCH_PROTOCOL') == 'arex-native':
+            # finish is handled internally, never delegated to a tool executor.
+            self.config.allowed_tools.add('finish')
         self._summary_lock = threading.Lock()
         self._stop_requested = threading.Event()
 
