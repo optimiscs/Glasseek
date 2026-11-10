@@ -1,0 +1,127 @@
+[
+  {
+    "source": "scripts/trajectory_preprocess/policy_v4.py",
+    "destination": "archieve/scripts/trajectory_preprocess/policy_v4.py",
+    "reason": "Superseded by canonical policy.py"
+  },
+  {
+    "source": "scripts/trajectory_preprocess/test_policy_v4.py",
+    "destination": "scripts/trajectory_preprocess/test_policy.py",
+    "reason": "Tests follow canonical policy"
+  },
+  {
+    "source": "scripts/trajectory_preprocess_pilot",
+    "destination": "archieve/scripts/trajectory_preprocess_pilot",
+    "reason": "Retired baseline pipelines and tests"
+  },
+  {
+    "source": "scripts/trajectory_benchmark/audit_full_prepare.py",
+    "destination": "scripts/trajectory_preprocess/audit_full_prepare.py",
+    "reason": "Production curation/export/validation"
+  },
+  {
+    "source": "scripts/trajectory_benchmark/audit_glasseek_contract.py",
+    "destination": "scripts/trajectory_preprocess/audit_glasseek_contract.py",
+    "reason": "Production curation/export/validation"
+  },
+  {
+    "source": "scripts/trajectory_benchmark/audit_searchswarm_migration.py",
+    "destination": "scripts/trajectory_preprocess/audit_searchswarm_migration.py",
+    "reason": "Production curation/export/validation"
+  },
+  {
+    "source": "scripts/trajectory_benchmark/export_migrated_review_sft.py",
+    "destination": "scripts/trajectory_preprocess/export_migrated_review_sft.py",
+    "reason": "Production curation/export/validation"
+  },
+  {
+    "source": "scripts/trajectory_benchmark/unify_trajectory_candidates.py",
+    "destination": "scripts/trajectory_preprocess/unify_trajectory_candidates.py",
+    "reason": "Production curation/export/validation"
+  },
+  {
+    "source": "scripts/trajectory_benchmark/test_unify_trajectory_candidates.py",
+    "destination": "scripts/trajectory_preprocess/test_unify_trajectory_candidates.py",
+    "reason": "Production curation/export/validation"
+  },
+  {
+    "source": "scripts/trajectory_benchmark/exclude_dataset_sources.py",
+    "destination": "scripts/trajectory_preprocess/exclude_dataset_sources.py",
+    "reason": "Production curation/export/validation"
+  },
+  {
+    "source": "scripts/trajectory_benchmark/unify_filtered_search.py",
+    "destination": "scripts/trajectory_preprocess/unify_filtered_search.py",
+    "reason": "Production curation/export/validation"
+  },
+  {
+    "source": "scripts/trajectory_benchmark/sample_xml_audit.py",
+    "destination": "scripts/trajectory_preprocess/audit_xml.py",
+    "reason": "Shared filtered-pool formatter and XML audit"
+  },
+  {
+    "source": "scripts/trajectory_benchmark",
+    "destination": "archieve/scripts/trajectory_benchmark",
+    "reason": "One-off comparisons, probes and chat displays"
+  },
+  {
+    "source": "scripts/maintenance",
+    "destination": "archieve/scripts/maintenance",
+    "reason": "Retired analysis-tree migration tool"
+  },
+  {
+    "source": "tests/test_archive_analysis.py",
+    "destination": "archieve/tests/test_archive_analysis.py",
+    "reason": "Tests of retired migration tool"
+  },
+  {
+    "source": "tests/test_clm_baseline_counts.py",
+    "destination": "archieve/tests/test_clm_baseline_counts.py",
+    "reason": "Tests of archived comparison scripts"
+  },
+  {
+    "source": "Data_curation/multi_agent_mpcs_v5_publish/scripts/audit_and_export_non_repeated_v49.py",
+    "destination": "archieve/Data_curation/multi_agent_mpcs_v5_publish/scripts/audit_and_export_non_repeated_v49.py",
+    "reason": "Historical v49 result export"
+  },
+  {
+    "source": "Data_curation/multi_agent_mpcs_v5_publish/scripts/export_v49_solver_trajectories.py",
+    "destination": "archieve/Data_curation/multi_agent_mpcs_v5_publish/scripts/export_v49_solver_trajectories.py",
+    "reason": "Historical v49 result export"
+  },
+  {
+    "source": "Data_curation/multi_agent_mpcs_v5_publish/scripts/run_v2_workflow.py",
+    "destination": "Data_curation/multi_agent_mpcs_v5_publish/scripts/run_workflow.py",
+    "reason": "One current workflow entrypoint"
+  },
+  {
+    "source": "scripts/trajectory_preprocess/report_safety_scan.py",
+    "destination": "archieve/scripts/trajectory_preprocess/report_safety_scan.py",
+    "reason": "Retired compatibility wrapper; use report.py safety"
+  },
+  {
+    "source": "scripts/trajectory_preprocess/reporting/pilot.py",
+    "destination": "archieve/scripts/trajectory_preprocess/reporting/pilot.py",
+    "reason": "Historical pilot acceptance comparison"
+  },
+  {
+    "source": "reports/clm-hermes-34-c12-20261108-123828/dataset.jsonl",
+    "destination": "data/evaluation/exclusions/clm-hermes-34.jsonl",
+    "reason": "Pinned evaluation exclusion input"
+  },
+  {
+    "source": "scripts/evaluation_suite/config.v1.json",
+    "destination": "scripts/evaluation_suite/config.json",
+    "reason": "One current evaluation suite configuration"
+  },
+  {
+    "source": "reports",
+    "destination": "archieve/reports",
+    "reason": "Historical reports and chat artifacts"
+  },
+  {
+    "source": "experiments",
+    "destination": "archieve/experiments",
+    "reason": "Historical experiment implementations and assets"
+  }
+]

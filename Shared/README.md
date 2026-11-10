@@ -11,7 +11,7 @@ These modules were selected because their contracts could be tested independentl
 of model inference and because they do not resolve assets relative to `__file__`.
 Role-specific plugin registration, URL safety, context compression, prompts and
 execution safeguards remain with each frontend. The 29 differing modules are
-inventoried in `reports/code-consolidation-20261106/hermes-role-differences.json`.
+inventoried in `archieve/reports/code-consolidation-20261106/hermes-role-differences.json`.
 Unmigrated upstream modules are not automatically classified as obsolete.
 
 `screening.py` and `screening_profiles.json` share answer extraction, candidate

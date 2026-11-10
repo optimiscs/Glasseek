@@ -143,7 +143,7 @@ SFT 的离线消息转换与 RL 的在线采样是两个不同入口。
 评测映射和页面快照默认保存于 `$HERMES_HOME/url_registry`，可用
 `GLASSEEK_URL_STATE_DIR` 指定独立目录，包含原始 URL，按轨迹数据管理访问权限。
 
-34 条历史轨迹的确定性回放入口为 `scripts/trajectory_benchmark/benchmark_url_modes.py`；
+34 条历史轨迹的确定性回放入口为 `archieve/scripts/trajectory_benchmark/benchmark_url_modes.py`；
 `run_url_modes_live.py --output <独立目录>` 复用现有评测入口执行四种模式端到端重跑。
 回放的 token 节省仅统计去重后的历史消息，不等于包含重复上下文的实际推理输入 token；
 工具参数还原率也不等于网络请求成功率或最终答案正确率。
