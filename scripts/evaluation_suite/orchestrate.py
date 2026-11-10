@@ -55,6 +55,9 @@ def execute(args,plans,blocked,names,counts):
                 if incremental:incremental.tick()
                 if affinity:
                     queue.extend(affinity.ready())
+                    for dataset in affinity.active:
+                        grants = {e: q.get(dataset, 0) for e, q in affinity.quotas.items()}
+                        states[dataset].update(endpoint_quotas=grants, inference_workers=sum(grants.values()))
                 while queue and (affinity or slots>0):
                     name,cmd,env=queue.pop(0);budget=args.workers if affinity else min(counts[name],slots,args.workers)
                     if not affinity:slots-=budget
@@ -63,7 +66,8 @@ def execute(args,plans,blocked,names,counts):
                         if flag in cmd:cmd[cmd.index(flag)+1]=str(budget)
                     log=(root/(name+'.infer.log')).open('a')
                     proc=subprocess.Popen(cmd,cwd=ROOT/'Evaluation',env=env,stdout=log,stderr=subprocess.STDOUT)
-                    running[name]=(proc,budget,time.monotonic(),log,env);states[name].update(state='inferring',pid=proc.pid,inference_workers=budget)
+                    running[name]=(proc,budget,time.monotonic(),log,env);states[name].update(state='inferring',pid=proc.pid)
+                    if not affinity:states[name]['inference_workers']=budget
                     print(json.dumps({'benchmark':name,'stage':'infer','workers':budget,'pid':proc.pid}),flush=True)
                 for name,(proc,budget,start,log,env) in list(running.items()):
                     code=proc.poll()
@@ -88,5 +92,6 @@ def execute(args,plans,blocked,names,counts):
             for proc,_,_,log,_ in running.values():
                 if proc.poll() is None:proc.terminate()
                 log.close()
+            if affinity:affinity.close()
             write_report(args,states)
     print('Report: '+str(root/'report.json'),flush=True)

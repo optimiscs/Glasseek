@@ -1048,6 +1048,9 @@ class MultiEndpointHermesClient:
             )
             for base_url, api_key, model, api_mode in route_definitions
         ]
+        self._shared_slots = os.environ.get('GLASSEEK_ENDPOINT_SLOTS')
+        self._slot_dataset = os.environ.get('GLASSEEK_SLOT_DATASET', config.dataset)
+        self._slot_capacity = int(os.environ.get('GLASSEEK_ENDPOINT_CAPACITY', str(key_worker_limits[0])))
         self._active = [0] * len(self.clients)
         self._next_index = 0
         self._condition = threading.Condition()
@@ -1083,16 +1086,22 @@ class MultiEndpointHermesClient:
                     and self.health_manager.generation(index)
                     > excluded.get(index, -1)
                 ]
-                if available:
+                lease = None
+                index = None
+                available.sort(key=lambda i: (self._active[i], (i - self._next_index) % len(self.clients)))
+                for candidate in available:
+                    if self._shared_slots:
+                        from glasseek_shared.endpoint_slots import try_acquire
+                        lease = try_acquire(self._shared_slots, self.clients[candidate].config.base_url,
+                                            self._slot_dataset, self._slot_capacity)
+                        if lease is None:
+                            continue
+                    index = candidate
                     break
-                self._condition.wait()
-            minimum = min(self._active[index] for index in available)
-            candidates = {index for index in available if self._active[index] == minimum}
-            index = next(
-                candidate
-                for offset in range(len(self.clients))
-                if (candidate := (self._next_index + offset) % len(self.clients)) in candidates
-            )
+                if index is not None:
+                    break
+                # Other dataset processes cannot signal this Condition.
+                self._condition.wait(timeout=0.1 if self._shared_slots else None)
             self._active[index] += 1
             self._next_index = (index + 1) % len(self.clients)
 
@@ -1105,6 +1114,8 @@ class MultiEndpointHermesClient:
             )
         finally:
             with self._condition:
+                if lease is not None:
+                    lease.close()
                 self._active[index] -= 1
                 self._condition.notify_all()
 
@@ -1233,6 +1244,9 @@ class MultiEndpointHermesClient:
                         api_key=route_config.api_key,
                     )
                 )
+            for entry in entries:
+                index = self._registry_route_indexes[str(entry['base_url'])]
+                self.worker_limits[index] = int(entry.get('worker_limit', self._registry_worker_limit))
             for base_url in current_urls - desired_set:
                 retired_indexes.append(self._registry_route_indexes.pop(base_url))
             self._registry_last_successful_read = timestamp

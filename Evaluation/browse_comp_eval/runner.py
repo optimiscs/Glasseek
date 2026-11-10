@@ -67,6 +67,13 @@ class BrowseCompRunner:
 
         stats = {"total": len(all_specs), "pending": len(pending), "success": 0, "failed": 0, "policy_violation": 0, "interrupted": 0, "skipped": len(all_specs) - len(pending)}
         if not pending:
+            progress_path = os.environ.get('GLASSEEK_SCHEDULING_STATE')
+            if progress_path:
+                path = Path(progress_path)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                temporary = path.with_suffix('.tmp')
+                temporary.write_text(json.dumps({'unscheduled': 0, 'in_flight': 0, 'completed': 0}))
+                temporary.replace(path)
             return stats
 
         # Submit only up to the pool's current healthy capacity.  The executor
@@ -94,7 +101,8 @@ class BrowseCompRunner:
                     temporary = path.with_suffix('.tmp')
                     temporary.write_text(json.dumps({'unscheduled': len(unscheduled),
                         'in_flight': len(future_to_spec), 'completed': completed,
-                        'capacity': capacity, 'total_pending_at_start': len(pending)}))
+                        'capacity': capacity, 'total_pending_at_start': len(pending),
+                        'endpoint_health': getattr(self.client, 'endpoint_health_snapshot', lambda: [])()}))
                     temporary.replace(path)
 
                 if not future_to_spec:

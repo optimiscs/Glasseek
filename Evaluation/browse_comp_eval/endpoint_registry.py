@@ -123,6 +123,10 @@ def normalize_registry(payload: object) -> dict[str, object]:
                     f"models[{model!r}][{position}] must be a JSON object"
                 )
             entry = dict(raw_entry)
+            limit = entry.get('worker_limit')
+            if 'worker_limit' in entry and (type(limit) is not int or limit < 0):
+                raise EndpointRegistryError('worker_limit must be a nonnegative integer')
+
             base_url = normalize_base_url(entry.get("base_url"))
             if base_url in seen_urls:
                 raise EndpointRegistryError(
