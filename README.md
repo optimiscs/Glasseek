@@ -141,8 +141,10 @@ The data construction pipeline, evaluation runner, backend, and [verl-based SFT/
 | [`Evaluation_backend/`](Evaluation_backend/) | Tool services and evaluation safeguards |
 | [`Shared/`](Shared/README.md) | Shared Hermes contracts and explicit screening policies used by both frontends |
 | [`Evaluation/services/`](Evaluation/services/README.tool-services.md) | Shared search pool, fetch/retrieval launchers and incremental judging; public defaults in `Evaluation/config/` |
-| [`experiments/`](experiments/README.md) | Historical experiment code and configurations; the former local analysis tree has been retired |
-| [`reports/experiments/`](reports/experiments/README.md) | Archived experiment results, separated from inputs, checkpoints and caches |
+| [`scripts/trajectory_preprocess/`](scripts/trajectory_preprocess/README.md) | Canonical trajectory normalization, annotation, validation and release pipeline |
+| [`scripts/trajectory_review/`](scripts/trajectory_review/) | Web review API and source browsing |
+| [`scripts/evaluation_suite/`](scripts/evaluation_suite/) | Benchmark acquisition, inference and official scoring adapters |
+| [`archieve/`](archieve/README.md) | Historical experiments, reports, pilot versions and one-off chat comparisons; excluded from active imports and test discovery |
 
 ## Citation
 

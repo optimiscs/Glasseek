@@ -113,7 +113,7 @@ echo "Starting v5p1: seeds=$NUM_SEEDS seed_concurrency=$SEED_CONCURRENCY "\
   "solver_rollouts=$SOLVER_ROLLOUTS solver_concurrency=$SOLVER_CONCURRENCY "\
   "run_id=$RUN_ID"
 
-"$PYTHON_BIN" scripts/run_v2_workflow.py \
+"$PYTHON_BIN" scripts/run_workflow.py \
   --env "$RUNTIME_ENV" \
   --run-id "$RUN_ID" \
   --auto-seed \

@@ -1,0 +1,43 @@
+{
+  "moves_verified": 25,
+  "symlinks_verified": 608,
+  "retired_roots_absent": [
+    "reports",
+    "experiments"
+  ],
+  "targeted_tests": {
+    "passed": 247,
+    "subtests_passed": 10
+  },
+  "cli_help_smoke_tests": {
+    "passed": 13
+  },
+  "full_suite": {
+    "passed": 488,
+    "failed": 0,
+    "skipped": 9,
+    "subtests_passed": 16,
+    "elapsed_seconds": 123.69,
+    "command": "PYTHONPATH=Shared:RL_training:Evaluation:scripts:scripts/trajectory_preprocess .cache/clm-official-env/bin/python -m pytest -q -ra",
+    "skip_reasons": {
+      "remote_sandbox_opt_in": 2,
+      "VERL_SOURCE_not_configured": 7
+    },
+    "warnings": [
+      "Existing AnyIO pytest plugin deprecation warning."
+    ]
+  },
+  "unchanged_since_start": [
+    "RL_training/glasseek_training/web_tools.py",
+    "Evaluation_backend/tools/web_tools.py"
+  ],
+  "diff_check": "passed",
+  "protocol_regressions": {
+    "passed": 34,
+    "changes": [
+      "Correct the stale XML entity-decoding assertion to match raw Qwen string parameters.",
+      "Mock auxiliary configuration probes in the extract test so real plugin discovery cannot replace the global tool registry.",
+      "Verify canonical serialization through runtime execution preserves entities, whitespace, newlines and duplicate batched queries."
+    ]
+  }
+}

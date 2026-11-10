@@ -97,7 +97,7 @@ This checks Python, Hermes imports, and YAML structure. The reported `aiagent_so
 ### Offline dry-run
 
 ```bash
-hermes/.venv/bin/python scripts/run_v2_workflow.py \
+hermes/.venv/bin/python scripts/run_workflow.py \
   --env .env_v5.example \
   --seed examples/sample_seed.json \
   --out-dir data/runs_dry \
@@ -127,7 +127,7 @@ Use `ENV_FILE`, `HERMES_PROJECT_ROOT`, `HERMES_VENV`, `HERMES_HOME`, and `PYTHON
 ### Existing seeds and individual stages
 
 ```bash
-hermes/.venv/bin/python scripts/run_v2_workflow.py \
+hermes/.venv/bin/python scripts/run_workflow.py \
   --env .env_v5 \
   --seed path/to/verified_seed.json \
   --run-id v5_existing \
@@ -177,7 +177,7 @@ The launcher enables `--resume`. Reusing a run ID may reuse completed results; u
 - **Execution permissions**: `terminal`, `file`, and `code_execution` can execute code or access files visible to the runtime account. A tool working directory is not an operating-system sandbox. Use a separate container or dedicated account and avoid mounting personal credentials or unrelated data.
 - **Logs and data**: Conversations, page content, and tool outputs are saved by default and may contain sensitive information or third-party material. Log redaction cannot cover every returned value. Review outputs before sharing them, and do not force-add ignored directories.
 - **Configuration isolation**: The workflow defaults to its own `.hermes/` directory. There is no need to copy the author's or another Hermes installation's login state. Keep API keys in private local configuration files.
-- **Result processing**: `scripts/audit_and_export_non_repeated_v49.py` requires an explicitly supplied external `--repeat-audit-script`. The main workflow does not depend on it.
+- **Historical result processing**: v49-specific exporters are retained under `archieve/Data_curation/multi_agent_mpcs_v5_publish/scripts/` at the repository root. Current trajectory processing lives in `scripts/trajectory_preprocess/`.
 - **Licensing**: The Hermes MIT license and component attribution are retained; see below. No license has been assigned to the first-party workflow. Its rights holder must confirm ownership and licensing before public release.
 - **Redaction scope**: Original deployment addresses, personal paths, user configuration, and authentication state have been removed. Example paths containing specific usernames have been replaced with generic examples. Loopback addresses, container service accounts, generic system paths, public service domains, and required attribution are retained. Newly generated runtime data must be reviewed separately.
 
